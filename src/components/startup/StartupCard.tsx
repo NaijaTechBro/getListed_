@@ -17,7 +17,7 @@ const StartupCard: React.FC<StartupCardProps> = ({ startup }) => {
     country,
     stage,
     metrics,
-    foundingDate
+    foundingDate,
   } = startup;
 
   // Format founding date

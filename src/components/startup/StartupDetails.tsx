@@ -1,77 +1,77 @@
 // client/src/pages/StartupDetails.tsx
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-// import { getStartupById, getSimilarStartups } from '../../services/api';
-// import { useAuth } from '../../context/AuthContext';
+import { getStartupById, getSimilarStartups } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import { Startup } from '../../types/index';
 import { formatDate } from '../../utils/helpers';
 import StartupShowcase from '../startup/StartupShowcase';
 
 const StartupDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  // const { user } = useAuth();
+  const { user } = useAuth();
   const [startup, setStartup] = useState<Startup | null>(null);
   const [similarStartups, setSimilarStartups] = useState<Startup[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'overview' | 'team' | 'funding'>('overview');
   const [contactModalOpen, setContactModalOpen] = useState<boolean>(false);
-  // const [contactFormData, setContactFormData] = useState({
-  //   name: user?.name || '',
-  //   email: user?.email || '',
-  //   message: '',
-  // });
+  const [contactFormData, setContactFormData] = useState({
+    name: user?.name || '',
+    email: user?.email || '',
+    message: '',
+  });
 
-  // useEffect(() => {
-  //   if (id) {
-  //     fetchStartupData(id);
-  //   }
-  // }, [id]);
+  useEffect(() => {
+    if (id) {
+      fetchStartupData(id);
+    }
+  }, [id]);
 
-  // const fetchStartupData = async (startupId: string) => {
-  //   try {
-  //     setLoading(true);
-  //     const response = await getStartupById(startupId);
-  //     setStartup(response.data);
+  const fetchStartupData = async (startupId: string) => {
+    try {
+      setLoading(true);
+      const response = await getStartupById(startupId);
+      setStartup(response.data);
       
-  //     // Fetch similar startups
-  //     const similarResponse = await getSimilarStartups(startupId);
-  //     setSimilarStartups(similarResponse.data);
-  //   } catch (error) {
-  //     console.error('Error fetching startup:', error);
-  //     setError('Failed to load startup data.');
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
+      // Fetch similar startups
+      const similarResponse = await getSimilarStartups(startupId);
+      setSimilarStartups(similarResponse.data);
+    } catch (error) {
+      console.error('Error fetching startup:', error);
+      setError('Failed to load startup data.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // const isOwner = user && startup && user._id === startup.createdBy;
+  const isOwner = user && startup && user._id === startup.createdBy;
 
-  // const handleContactChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-  //   const { name, value } = e.target;
-  //   setContactFormData(prev => ({
-  //     ...prev,
-  //     [name]: value
-  //   }));
-  // };
+  const handleContactChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setContactFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
 
-  // const handleContactSubmit = (e: React.FormEvent) => {
-  //   e.preventDefault();
-  //   // Here you would implement the logic to send the contact request
-  //   // For example, calling an API endpoint to send an email
-  //   console.log('Contact form submitted:', contactFormData);
+  const handleContactSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Here you would implement the logic to send the contact request
+    // For example, calling an API endpoint to send an email
+    console.log('Contact form submitted:', contactFormData);
     
-  //   // Show success message or handle response accordingly
-  //   alert('Your message has been sent! The startup will contact you soon.');
+    // Show success message or handle response accordingly
+    alert('Your message has been sent! The startup will contact you soon.');
     
-  //   // Close the modal and reset form
-  //   setContactModalOpen(false);
-  //   setContactFormData({
-  //     name: user?.name || '',
-  //     email: user?.email || '',
-  //     message: '',
-  //   });
-  // };
+    // Close the modal and reset form
+    setContactModalOpen(false);
+    setContactFormData({
+      name: user?.name || '',
+      email: user?.email || '',
+      message: '',
+    });
+  };
 
   const renderTabContent = () => {
     if (!startup) return null;
