@@ -28,7 +28,7 @@ export interface Startup {
     metrics: {
       fundingTotal: number;
       employees: number;
-      revenue: string;
+      revenue: number;
     };
     socialProfiles: {
       linkedin: string;
