@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode, useCallback } from 'react';
-import api from '../services/api'; // Import the API service
+import api from '../services/api'; 
 
 // Define user interface
 interface User {
@@ -53,7 +53,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       try {
         if (localStorage.getItem('token')) {
           // Get current user
-          const response = await api.get('/auth/me');
+          const response = await api.get('/me');
           
           setAuthState({
             isAuthenticated: true,
