@@ -72,14 +72,14 @@ const Footer: React.FC = () => {
         <div className="border-t border-gray-200 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="flex items-center mb-4 md:mb-0">
-              <div className="mr-4">
-                <svg className="w-8 h-8" viewBox="0 0 24 24">
-                  <circle cx="12" cy="12" r="11" fill="#4f46e5" />
-                  <circle cx="12" cy="12" r="8" fill="white" />
-                  <circle cx="12" cy="12" r="4" fill="#4f46e5" />
-                </svg>
-                <span className="ml-2 font-bold">GetListed</span>
-              </div>
+                    <div className="mr-8 flex items-center">
+                        <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
+                          <circle cx="12" cy="12" r="11" fill="black" />
+                          <circle cx="12" cy="12" r="8" fill="white" />
+                          <circle cx="12" cy="12" r="4" fill="black" />
+                        </svg>
+                        <Link to="/"><span className="ml-2 font-bold text-xl">GetListed</span></Link>
+                      </div>
             </div>
             <div className="flex items-center">
               <p className="text-sm text-center md:text-left mt-4">

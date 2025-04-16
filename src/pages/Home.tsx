@@ -1,17 +1,20 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import StartupShowcase from '../components/startup/StartupShowcase';
+import Navbar from '../components/common/Navbar';
+import Footer from '../components/common/Footer';
 
 const HomePage: React.FC = () => {
   return (
     <>
       {/* Hero Section */}
+      <Navbar />
       <div className="bg-white py-16 px-8 text-center">
         <h1 className="text-5xl font-bold mb-6 max-w-4xl mx-auto">Discover African Startups Ready to Change the World</h1>
         <p className="text-xl max-w-3xl mx-auto mb-8">
           GetListed connects investors with promising African startups across all sectors and stages.
         </p>
-        <Link to="/directory" className="bg-black text-white px-8 py-3 rounded-md text-lg font-medium hover:bg-gray-800">
+        <Link to="/register" className="bg-black text-white px-8 py-3 rounded-md text-lg font-medium hover:bg-gray-800">
           Get Listed Today
         </Link>
       </div>
@@ -38,12 +41,6 @@ const HomePage: React.FC = () => {
       {/* Featured Startups - Updated with Green Background */}
       <section className="py-16 bg-green-200">
         <div className="container mx-auto px-4">
-          <div className="flex justify-between items-center mb-10">
-            <h2 className="text-3xl font-bold">Featured Startups</h2>
-            <Link to="/directory" className="text-green-700 hover:text-green-900 font-medium">
-              View All →
-            </Link>
-          </div>
           <StartupShowcase />
         </div>
       </section>
@@ -137,6 +134,7 @@ const HomePage: React.FC = () => {
           </div>
         </div>
       </section>
+      <Footer />
     </>
   );
 };
