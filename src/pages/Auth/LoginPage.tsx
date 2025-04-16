@@ -19,9 +19,9 @@ const LoginPage: React.FC = () => {
     
     // Clear auth errors when component unmounts
     return () => {
-      clearError();
+      if (error) clearError();
     };
-  }, [isAuthenticated, navigate, clearError]);
+  }, [isAuthenticated, navigate, error]);
 
   // Set form error if auth error exists
   useEffect(() => {
@@ -53,7 +53,7 @@ const LoginPage: React.FC = () => {
                       <Link to="/"><span className="ml-2 font-bold text-xl">GetListed</span></Link>
                     </div>
       <div className="bg-white p-8 shadow-md rounded-lg">
-        <h2 className="text-3xl font-bold text-center mb-8">Login to GetListed</h2>
+        <h2 className="text-3xl font-bold text-center mb-8">Login</h2>
         
         {formError && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">

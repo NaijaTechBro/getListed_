@@ -58,6 +58,14 @@ const ResetPasswordPage: React.FC = () => {
 
   return (
     <div className="max-w-md mx-auto my-16 px-4">
+      <div className="flex items-center justify-center mb-6">
+                            <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
+                              <circle cx="12" cy="12" r="11" fill="black" />
+                              <circle cx="12" cy="12" r="8" fill="white" />
+                              <circle cx="12" cy="12" r="4" fill="black" />
+                            </svg>
+                            <Link to="/"><span className="ml-2 font-bold text-xl">GetListed</span></Link>
+                          </div>
       <div className="bg-white p-8 shadow-md rounded-lg">
         <h2 className="text-3xl font-bold text-center mb-8">Set New Password</h2>
         
