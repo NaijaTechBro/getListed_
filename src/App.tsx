@@ -86,6 +86,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { StartupProvider } from './context/StartupContext';
 
 // Public pages
 import HomePage from './pages/Home';
@@ -113,6 +114,7 @@ import NotFoundPage from './pages/NotFoundPage';
 const App: React.FC = () => {
   return (
     <AuthProvider>
+      <StartupProvider>
       <Router>
         <Routes>
           {/* Public routes */}
@@ -143,6 +145,7 @@ const App: React.FC = () => {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Router>
+      </StartupProvider>
     </AuthProvider>
   );
 };

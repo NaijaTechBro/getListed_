@@ -7,8 +7,7 @@ const RegisterPage: React.FC = () => {
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [companyName, setCompanyName] = useState('');
-  const [role, setRole] = useState('startup'); // Changed to match your types
+  const [role, setRole] = useState('user'); // Changed to match your types
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [formError, setFormError] = useState('');
   
@@ -50,7 +49,7 @@ const RegisterPage: React.FC = () => {
     }
     
     try {
-      await register(firstName, lastName, email, password, companyName);
+      await register(firstName, lastName, email, password);
       // Show success message and redirect to login
       navigate('/verification-sent', { state: { email } });
     } catch (err) {
@@ -137,20 +136,6 @@ const RegisterPage: React.FC = () => {
             />
             <p className="mt-1 text-xs text-gray-500">Must be at least 8 characters</p>
           </div>
-          
-          <div className="mb-4">
-            <label htmlFor="companyName" className="block text-sm font-medium text-gray-700 mb-1">
-              Company Name (Optional)
-            </label>
-            <input
-              id="companyName"
-              type="text"
-              value={companyName}
-              onChange={(e) => setCompanyName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
-            />
-          </div>
-          
           <div className="mb-4">
             <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">
               Account Type
@@ -161,7 +146,7 @@ const RegisterPage: React.FC = () => {
               onChange={(e) => setRole(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
             >
-              <option value="startup">Startup</option>
+              <option value="founder">Founder</option>
               <option value="investor">Investor</option>
             </select>
           </div>

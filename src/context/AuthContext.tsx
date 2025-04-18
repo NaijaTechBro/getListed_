@@ -84,7 +84,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   // Register user
-  const register = async (firstName: string, lastName: string, email: string, password: string, companyName?: string) => {
+  const register = async (firstName: string, lastName: string, email: string, password: string) => {
     try {
       setAuthState(prev => ({ ...prev, loading: true }));
       
@@ -92,8 +92,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         firstName,
         lastName,
         email,
-        password,
-        companyName
+        password
       });
       
       setAuthState({
