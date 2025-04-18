@@ -84,7 +84,7 @@
 
 
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { StartupProvider } from './context/StartupContext';
 
@@ -99,8 +99,8 @@ import VerificationSentPage from './pages/Auth/VerificationSentPage';
 // import UnauthorizedPage from './pages/UnauthorizedPage';
 import NotFoundPage from './pages/NotFoundPage';
 
-// // Protected pages
-// import DashboardPage from './pages/DashboardPage';
+// Protected pages
+import DashboardPage from './pages/Dashboard/Dashboard';
 // import ProfilePage from './pages/ProfilePage';
 // import SettingsPage from './pages/SettingsPage';
 
@@ -109,7 +109,7 @@ import NotFoundPage from './pages/NotFoundPage';
 // import AdminUsersPage from './pages/admin/UsersPage';
 
 // Protected route component
-// import ProtectedRoute from './components/ProtectedRoute';
+import ProtectedRoute from './components/ProtectedRoute';
 
 const App: React.FC = () => {
   return (
@@ -128,11 +128,11 @@ const App: React.FC = () => {
           {/* <Route path="/unauthorized" element={<UnauthorizedPage />} /> */}
           
           {/* Protected routes for all authenticated users */}
-          {/* <Route element={<ProtectedRoute />}>
+          <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-          </Route> */}
+            {/* <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/settings" element={<SettingsPage />} /> */}
+          </Route>
           
           {/* Admin-only routes */}
           {/* <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
