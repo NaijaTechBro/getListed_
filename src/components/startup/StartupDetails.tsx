@@ -4,7 +4,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useStartup } from '../../context/StartupContext';
 import { useAuth } from '../../context/AuthContext';
 import { formatDate } from '../../utils/helpers';
-import StartupShowcase from '../../components/startup/StartupShowcase';
+// import StartupShowcase from '../../components/startup/StartupShowcase';
 import { Startup } from '../../types';
 
 const StartupDetails: React.FC = () => {
@@ -439,7 +439,7 @@ const StartupDetails: React.FC = () => {
     <div className="container mx-auto px-4">
       <h2 className="text-2xl font-bold mb-8 text-center">You Might Also Be Interested In</h2>
       {/* Fix the prop passing to match what StartupShowcase expects */}
-      <StartupShowcase startups={similarStartups.slice(0, 4)} />
+      {/* <StartupShowcase startups={similarStartups.slice(0, 4)} /> */}
       </div>
       </div>
     )}

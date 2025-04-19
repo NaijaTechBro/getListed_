@@ -470,7 +470,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Startup, StartupShowcaseProps } from '../../types';
+import { Startup } from '../../types';
 import { useStartup } from '../../context/StartupContext';
 
 interface ExtendedStartupShowcaseProps {

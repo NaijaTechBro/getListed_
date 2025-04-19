@@ -2,8 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useStartup } from '../../context/StartupContext';
-import { useAuth } from '../../context/AuthContext';
-import { Startup, Founder } from '../../types';
+import { Startup } from '../../types';
 
 interface StartupFormProps {
   isEditing?: boolean;
@@ -12,7 +11,6 @@ interface StartupFormProps {
 const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const { user } = useAuth();
   const { 
     startup, 
     loading, 
