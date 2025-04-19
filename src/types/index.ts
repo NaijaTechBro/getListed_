@@ -53,6 +53,10 @@ export interface Startup {
     linkedin: string;
     bio?: string;
   }
+
+  export interface StartupShowcaseProps {
+    startups: Startup[];
+  }
   
   export interface FundingRound {
     stage: string;

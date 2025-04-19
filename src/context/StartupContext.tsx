@@ -1,22 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode, useCallback } from 'react';
 import api from '../services/api';
 import { useAuth } from './AuthContext';
-
-// Define startup interface
-interface Startup {
-  id: string;
-  name: string;
-  description?: string;
-  industry?: string;
-  fundingStage?: string;
-  foundedDate?: string;
-  website?: string;
-  logo?: string;
-  location?: string;
-  user: string;
-  createdAt: string;
-  updatedAt: string;
-}
+import { Startup } from '../types';
 
 // Define startups state interface
 interface StartupsState {
@@ -62,7 +47,7 @@ export const StartupProvider: React.FC<StartupProviderProps> = ({ children }) =>
     }
   }, [isAuthenticated]);
 
-  // Get all startups
+  // // Get all startups
   const getStartups = async (query: string = '') => {
     try {
       setStartupsState(prev => ({ ...prev, loading: true }));
@@ -149,7 +134,7 @@ export const StartupProvider: React.FC<StartupProviderProps> = ({ children }) =>
       setStartupsState(prev => ({
         ...prev,
         startups: prev.startups.map(startup =>
-          startup.id === id ? response.data.data : startup
+          startup._id === id ? response.data.data : startup
         ),
         startup: response.data.data,
         loading: false,
@@ -176,8 +161,8 @@ export const StartupProvider: React.FC<StartupProviderProps> = ({ children }) =>
       
       setStartupsState(prev => ({
         ...prev,
-        startups: prev.startups.filter(startup => startup.id !== id),
-        startup: prev.startup?.id === id ? null : prev.startup,
+        startups: prev.startups.filter(startup => startup._id !== id),
+        startup: prev.startup?._id === id ? null : prev.startup,
         loading: false,
         error: null
       }));
@@ -210,7 +195,7 @@ export const StartupProvider: React.FC<StartupProviderProps> = ({ children }) =>
         createStartup,
         updateStartup,
         deleteStartup,
-        clearStartupError,
+        clearStartupError,  
         clearStartup
       }}
     >

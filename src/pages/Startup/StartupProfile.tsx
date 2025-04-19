@@ -1,36 +1,25 @@
 // client/src/pages/StartupProfile.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getStartupById } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
-import { Startup } from '../../types';
+import { useStartup } from '../../context/StartupContext';
 import { formatDate } from '../../utils/helpers';
 
 const StartupProfile: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
-  const [startup, setStartup] = useState<Startup | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string>('');
+  const { startup, loading, error, getStartup, clearStartup } = useStartup();
 
   useEffect(() => {
     if (id) {
-      fetchStartupData(id);
+      getStartup(id);
     }
-  }, [id]);
-
-  const fetchStartupData = async (startupId: string) => {
-    try {
-      setLoading(true);
-      const response = await getStartupById(startupId);
-      setStartup(response.data);
-    } catch (error) {
-      console.error('Error fetching startup:', error);
-      setError('Failed to load startup data.');
-    } finally {
-      setLoading(false);
-    }
-  };
+    
+    // Clear startup data when component unmounts
+    return () => {
+      clearStartup();
+    };
+  }, [id, getStartup, clearStartup]);
 
   const isOwner = user && startup && user._id === startup.createdBy;
 
@@ -163,7 +152,7 @@ const StartupProfile: React.FC = () => {
             </div>
             
             {/* Team */}
-            {startup.founders.length > 0 && (
+            {startup.founders && startup.founders.length > 0 && (
               <div className="bg-white rounded-lg shadow-md p-6 md:p-8">
                 <h2 className="text-2xl font-bold mb-6">Team</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -248,7 +237,7 @@ const StartupProfile: React.FC = () => {
                 
                 <div>
                   <p className="text-sm text-gray-500">Revenue Range</p>
-                  <p className="text-xl font-semibold">{startup.metrics.revenue}</p>
+                  <p className="text-xl font-semibold">{startup.metrics.revenue || 'Not disclosed'}</p>
                 </div>
               </div>
             </div>

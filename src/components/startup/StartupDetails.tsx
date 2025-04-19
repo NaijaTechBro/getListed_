@@ -4,56 +4,14 @@ import { useParams, Link } from 'react-router-dom';
 import { useStartup } from '../../context/StartupContext';
 import { useAuth } from '../../context/AuthContext';
 import { formatDate } from '../../utils/helpers';
-import StartupShowcase from '../startup/StartupShowcase';
-
-interface Founder {
-  name: string;
-  role?: string;
-  bio?: string;
-  linkedin?: string;
-}
-
-interface FundingRound {
-  stage: string;
-  date: string;
-  amount: number;
-  valuation?: number;
-  investors?: string[];
-  notes?: string;
-}
-
-interface Startup {
-  _id: string;
-  name: string;
-  description: string;
-  tagline?: string;
-  logo?: string;
-  website?: string;
-  category: string;
-  stage: string;
-  foundingDate: string;
-  city?: string;
-  country: string;
-  createdBy: string;
-  products?: string;
-  founders?: Founder[];
-  fundingRounds?: FundingRound[];
-  metrics: {
-    fundingTotal?: number;
-    employees?: number;
-    revenue?: string;
-  };
-  socialProfiles: {
-    [key: string]: string;
-  };
-}
+import StartupShowcase from '../../components/startup/StartupShowcase';
+import { Startup } from '../../types';
 
 const StartupDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
-  const { getStartup, loading, error } = useStartup();
+  const { getStartup, getStartups, loading, error, startup } = useStartup();
   
-  const [startup, setStartup] = useState<Startup | null>(null);
   const [similarStartups, setSimilarStartups] = useState<Startup[]>([]);
   const [activeTab, setActiveTab] = useState<'overview' | 'team' | 'funding'>('overview');
   const [contactModalOpen, setContactModalOpen] = useState<boolean>(false);
@@ -65,37 +23,25 @@ const StartupDetails: React.FC = () => {
 
   useEffect(() => {
     if (id) {
-      fetchStartupData(id);
+      getStartup(id);
     }
-  }, [id]);
+  }, [id, getStartup]);
 
-  // const fetchStartupData = async (startupId: string) => {
-  //   try {
-  //     // Use the getStartup method from context instead of direct API call
-  //     const response = await getStartup(startupId);
-  //     setStartup(response.data);
-      
-  //     // For similar startups, we'll need to add this functionality to our context
-  //     // For now, you can use a modified query to get similar startups
-  //     // This is a placeholder - you'll need to implement getSimilarStartups in your context
-  //     fetchSimilarStartups(response.data);
-  //   } catch (err) {
-  //     console.error('Error fetching startup:', err);
-  //     // Error is already handled by the context
-  //   }
-  // };
+  useEffect(() => {
+    // Fetch similar startups when startup data is available
+    if (startup?.category) {
+      fetchSimilarStartups(startup);
+    }
+  }, [startup]);
 
   const fetchSimilarStartups = async (currentStartup: Startup) => {
     try {
-      // This is a placeholder - ideally, add a getSimilarStartups method to your context
-      // For now, we can use the category as a filter
-      if (currentStartup?.category) {
-        // Using the getStartups method with a query
-        const query = `category=${currentStartup.category}&limit=4&exclude=${currentStartup._id}`;
-        const response = await fetch(`/api/startups?${query}`);
-        const data = await response.json();
-        setSimilarStartups(data.data.filter((s: Startup) => s._id !== currentStartup._id));
-      }
+      // Using the getStartups method with a proper query
+      const query = `category=${currentStartup.category}&limit=4&exclude=${currentStartup._id}`;
+      await getStartups(query);
+      
+      // The startups state will be updated by the context after getStartups completes
+      // You could access startupsState.startups here or in another useEffect
     } catch (err) {
       console.error('Error fetching similar startups:', err);
     }

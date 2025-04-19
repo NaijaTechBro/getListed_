@@ -1,4 +1,3 @@
-// client/src/pages/StartupDirectory.tsx
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import StartupCard from '../../components/startup/StartupCard';
@@ -138,7 +137,7 @@ const StartupDirectory: React.FC = () => {
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {startups.map((startup) => (
-                <StartupCard key={startup._id} startup={startup} />
+                <StartupCard key={startup._id} startup={startup as unknown as Startup} />
               ))}
             </div>
             
