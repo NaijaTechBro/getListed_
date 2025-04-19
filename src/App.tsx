@@ -15,6 +15,8 @@ import NotFoundPage from './pages/NotFoundPage';
 
 // Protected pages
 import DashboardPage from './pages/Dashboard/DashboardPage';
+import Sidebar from './pages/Dashboard/Sidebar';
+import StartupForm from './components/startup/StartupForm';
 // import ProfilePage from './pages/ProfilePage';
 // import SettingsPage from './pages/SettingsPage';
 
@@ -25,49 +27,65 @@ import DashboardPage from './pages/Dashboard/DashboardPage';
 // Protected route component
 import ProtectedRoute from './components/ProtectedRoute';
 import MyStartups from './pages/Startup/MyStartups';
-// import DashboardOverview from './pages/Dashboard/DashboardOverview';
-import AddStartupWrapper from './pages/Startup/AddStartupWrapper';
 import UnauthorizedPage from './pages/UnauthorizedPage';
 import StartupDirectory from './pages/Startup/StartupDirectory';
+import AddStartupWrapper from './pages/Startup/AddStartupWrapper';
+
+import FAQPage from './components/company/FAQPage';
+import AboutPage from './components/company/AboutPage';
+import CareersPage from './components/company/CareerPage';
+import ContactUsPage from './components/company/ContactPage';
+import PrivacyPage from './components/company/PrivacyPage';
+import TermsPage from './components/company/TermsPage';
 
 const App: React.FC = () => {
   return (
     <AuthProvider>
       <StartupProvider>
-      <Router>
-        <Routes>
-          {/* Public routes */}
-          <Route path="/" element={<HomePage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/reset-password/:resetToken" element={<ResetPasswordPage />} />
-          <Route path="/verify/:token" element={<VerifyEmailPage />} />
-          <Route path="/verification-sent" element={<VerificationSentPage />} />
-          <Route path="/unauthorized" element={<UnauthorizedPage />} />
-          <Route path="/directory" element={<StartupDirectory />} />
-          
-          {/* Protected routes for all authenticated users */}
-          <Route element={<ProtectedRoute allowedRoles={['founder']} />}>
-            <Route path="/dashboard" element={<DashboardPage/>} />
-            <Route path="/dashboard/my-startups" element={<MyStartups />} />
-            {/* <Route path="/dashboard/analytics" element={<DashboardOverview />} /> */}
-            <Route path="/dashboard/add-startup" element={<AddStartupWrapper />} />
-            {/* <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/settings" element={<SettingsPage />} /> */}
-          </Route>
-          
-          {/* Admin-only routes */}
-          {/* <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-            <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
-            <Route path="/admin/users" element={<AdminUsersPage />} />
-          </Route> */}
-          
-          
-          {/* 404 route */}
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
-      </Router>
+        <Router>
+          <Routes>
+            {/* Authentication Routes */}
+            <Route path="/" element={<HomePage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password/:resetToken" element={<ResetPasswordPage />} />
+            <Route path="/verify/:token" element={<VerifyEmailPage />} />
+            <Route path="/verification-sent" element={<VerificationSentPage />} />
+            <Route path="/unauthorized" element={<UnauthorizedPage />} />
+
+            {/* Public Route */}
+            <Route path="/directory" element={<StartupDirectory />} />
+
+
+            {/* CompanyPage Route */}
+            <Route path="/faqs" element={<FAQPage/>} />
+            <Route path="/about" element={<AboutPage/>} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/careers" element={<CareersPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/contact" element={<ContactUsPage/>}/>
+
+            {/* Protected routes for all authenticated users */}
+            <Route element={<ProtectedRoute allowedRoles={['founder']} />}>
+              <Route path="/dashboard" element={<Sidebar />}>
+                <Route index element={<DashboardPage />} />
+                <Route path="add-startup" element={<AddStartupWrapper />} />
+                <Route path="edit-startup/:id" element={<StartupForm isEditing={true} />} />
+                <Route path="my-startups" element={<MyStartups />} />
+              </Route>
+            </Route>
+
+            {/* Protected routes for admin users */}
+            {/* <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+              <Route path="/admin" element={<AdminDashboardPage />} />
+              <Route path="/admin/users" element={<AdminUsersPage />} />
+            </Route> */}
+
+            {/* 404 route */}
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </Router>
       </StartupProvider>
     </AuthProvider>
   );
