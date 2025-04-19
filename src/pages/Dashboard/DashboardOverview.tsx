@@ -7,8 +7,8 @@ import { Startup } from '../../types/index';
 
 const DashboardOverview: React.FC = () => {
   const { user } = useAuth();
-  const { startups, loading, getStartups } = useStartup();
-  const [userStartups, setUserStartups] = useState<Startup[]>([]);
+  const { loading, getStartups } = useStartup();
+  const [userStartups] = useState<Startup[]>([]);
   const [stats, setStats] = useState({
     totalStartups: 0,
     pendingVerification: 0,
