@@ -58,7 +58,7 @@ const StartupDetails: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'team' | 'funding'>('overview');
   const [contactModalOpen, setContactModalOpen] = useState<boolean>(false);
   const [contactFormData, setContactFormData] = useState({
-    name: user?.name || '',
+    firstName: user?.firstName || '',
     email: user?.email || '',
     message: '',
   });
@@ -69,21 +69,21 @@ const StartupDetails: React.FC = () => {
     }
   }, [id]);
 
-  const fetchStartupData = async (startupId: string) => {
-    try {
-      // Use the getStartup method from context instead of direct API call
-      const response = await getStartup(startupId);
-      setStartup(response.data);
+  // const fetchStartupData = async (startupId: string) => {
+  //   try {
+  //     // Use the getStartup method from context instead of direct API call
+  //     const response = await getStartup(startupId);
+  //     setStartup(response.data);
       
-      // For similar startups, we'll need to add this functionality to our context
-      // For now, you can use a modified query to get similar startups
-      // This is a placeholder - you'll need to implement getSimilarStartups in your context
-      fetchSimilarStartups(response.data);
-    } catch (err) {
-      console.error('Error fetching startup:', err);
-      // Error is already handled by the context
-    }
-  };
+  //     // For similar startups, we'll need to add this functionality to our context
+  //     // For now, you can use a modified query to get similar startups
+  //     // This is a placeholder - you'll need to implement getSimilarStartups in your context
+  //     fetchSimilarStartups(response.data);
+  //   } catch (err) {
+  //     console.error('Error fetching startup:', err);
+  //     // Error is already handled by the context
+  //   }
+  // };
 
   const fetchSimilarStartups = async (currentStartup: Startup) => {
     try {
@@ -123,7 +123,7 @@ const StartupDetails: React.FC = () => {
     // Close the modal and reset form
     setContactModalOpen(false);
     setContactFormData({
-      name: user?.name || '',
+      firstName: user?.firstName || '',
       email: user?.email || '',
       message: '',
     });
@@ -507,7 +507,7 @@ const StartupDetails: React.FC = () => {
                     type="text"
                     id="name"
                     name="name"
-                    value={contactFormData.name}
+                    value={contactFormData.firstName}
                     onChange={handleContactChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     required
