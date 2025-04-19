@@ -10,7 +10,7 @@ import { Startup } from '../../types';
 const StartupDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
-  const { getStartup, getStartups, loading, error, startup } = useStartup();
+  const { getStartup, getStartups, loading, error, startup, startups } = useStartup();
   
   const [similarStartups, setSimilarStartups] = useState<Startup[]>([]);
   const [activeTab, setActiveTab] = useState<'overview' | 'team' | 'funding'>('overview');
@@ -21,31 +21,49 @@ const StartupDetails: React.FC = () => {
     message: '',
   });
 
+  // Fetch startup details when the ID changes
   useEffect(() => {
     if (id) {
       getStartup(id);
     }
   }, [id, getStartup]);
 
+  // Fetch similar startups when startup data is available
   useEffect(() => {
-    // Fetch similar startups when startup data is available
-    if (startup?.category) {
-      fetchSimilarStartups(startup);
-    }
-  }, [startup]);
+    const fetchSimilarStartups = async () => {
+      if (startup?.category) {
+        try {
+          // Using the getStartups method with a proper query
+          const query = `category=${startup.category}&limit=4&exclude=${startup._id}`;
+          await getStartups(query);
+        } catch (err) {
+          console.error('Error fetching similar startups:', err);
+        }
+      }
+    };
 
-  const fetchSimilarStartups = async (currentStartup: Startup) => {
-    try {
-      // Using the getStartups method with a proper query
-      const query = `category=${currentStartup.category}&limit=4&exclude=${currentStartup._id}`;
-      await getStartups(query);
-      
-      // The startups state will be updated by the context after getStartups completes
-      // You could access startupsState.startups here or in another useEffect
-    } catch (err) {
-      console.error('Error fetching similar startups:', err);
+    fetchSimilarStartups();
+  }, [startup, getStartups]);
+
+  // Update similarStartups state when startups from context change
+  useEffect(() => {
+    if (startup && startups.length > 0) {
+      // Filter out the current startup if it's in the results
+      const filtered = startups.filter(s => s._id !== startup._id);
+      setSimilarStartups(filtered.slice(0, 4));
     }
-  };
+  }, [startups, startup]);
+
+  // Update contact form data when user changes
+  useEffect(() => {
+    if (user) {
+      setContactFormData(prev => ({
+        ...prev,
+        firstName: user.firstName || prev.firstName,
+        email: user.email || prev.email
+      }));
+    }
+  }, [user]);
 
   const isOwner = user && startup && user._id === startup.createdBy;
 
@@ -56,7 +74,6 @@ const StartupDetails: React.FC = () => {
       [name]: value
     }));
   };
-
   const handleContactSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Here you would implement the logic to send the contact request
@@ -416,16 +433,16 @@ const StartupDetails: React.FC = () => {
         </div>
       </div>
       
-      {/* Similar startups showcase */}
-      {similarStartups.length > 0 && (
-        <div className="bg-gray-100 border-t border-gray-200 py-12">
-          <div className="container mx-auto px-4">
-            <h2 className="text-2xl font-bold mb-8 text-center">You Might Also Be Interested In</h2>
-            <StartupShowcase startups={similarStartups.slice(0, 4)} />
-          </div>
-        </div>
-      )}
-      
+  {/* Similar startups showcase */}
+        {similarStartups.length > 0 && (
+    <div className="bg-gray-100 border-t border-gray-200 py-12">
+    <div className="container mx-auto px-4">
+      <h2 className="text-2xl font-bold mb-8 text-center">You Might Also Be Interested In</h2>
+      {/* Fix the prop passing to match what StartupShowcase expects */}
+      <StartupShowcase startups={similarStartups.slice(0, 4)} />
+      </div>
+      </div>
+    )}
       {/* Contact modal */}
       {contactModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
