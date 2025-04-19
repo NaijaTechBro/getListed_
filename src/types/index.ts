@@ -2,9 +2,10 @@
 
 export interface User {
     _id: string;
-    name: string;
+    firstName: string;
+    lastName: string;
     email: string;
-    role: 'startup' | 'investor' | 'admin';
+    role: 'founder' | 'investor' | 'admin' | 'user';
     // Other relevant user fields
   }
 
@@ -28,6 +29,8 @@ export interface Startup {
     metrics: {
       fundingTotal: number;
       employees: number;
+      connections: number;
+      views: number;
       revenue: number;
     };
     socialProfiles: {
@@ -38,7 +41,7 @@ export interface Startup {
     };
     founders: Founder[];
     fundingRounds?: FundingRound[];
-    createdBy: string;
+    createdBy: string; // Reference to Users
     isVerified: boolean;
     createdAt: string;
     updatedAt: string;

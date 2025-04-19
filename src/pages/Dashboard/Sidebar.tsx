@@ -1,33 +1,19 @@
-// client/src/pages/Dashboard.tsx
 import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Startup } from '../../types';
-import { getUserStartups } from '../../services/api';
+import { useStartup } from '../../context/StartupContext'; 
 
-const Dashboard: React.FC = () => {
+const Sidebar: React.FC = () => {
   const { user, logout } = useAuth();
+  const { startups, loading, getStartups } = useStartup(); 
   const navigate = useNavigate();
   const location = useLocation();
-  const [userStartups, setUserStartups] = useState<Startup[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
 
   useEffect(() => {
-    fetchUserStartups();
+    // Use the getStartups method from context instead of direct API call
+    getStartups();
   }, []);
-
-  const fetchUserStartups = async () => {
-    try {
-      setLoading(true);
-      const response = await getUserStartups();
-      setUserStartups(response.data);
-    } catch (error) {
-      console.error('Error fetching user startups:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleLogout = () => {
     logout();
@@ -45,7 +31,7 @@ const Dashboard: React.FC = () => {
   return (
     <div className="flex h-screen bg-gray-100">
       {/* Mobile sidebar toggle */}
-      <div className="lg:hidden fixed top-0 left-0 z-20 p-4">
+      {/* <div className="lg:hidden fixed top-0 left-0 z-20 p-4">
         <button 
           onClick={toggleSidebar}
           className="text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-md"
@@ -54,7 +40,7 @@ const Dashboard: React.FC = () => {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={sidebarOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"} />
           </svg>
         </button>
-      </div>
+      </div> */}
 
       {/* Sidebar */}
       <div 
@@ -75,10 +61,10 @@ const Dashboard: React.FC = () => {
         <div className="px-4 py-4 border-b border-gray-200">
           <div className="flex items-center space-x-3">
             <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-lg">
-              {user?.name ? user.name.charAt(0) : 'U'}
+              {user?.firstName ? user.firstName.charAt(0) : 'U'}
             </div>
             <div>
-              <p className="font-medium">{user?.name || 'User'}</p>
+              <p className="font-medium">{user?.firstName || 'User'}</p>
               <p className="text-sm text-gray-500">{user?.email || ''}</p>
             </div>
           </div>
@@ -98,19 +84,6 @@ const Dashboard: React.FC = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                     </svg>
                     Overview
-                  </div>
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/dashboard/analytics" 
-                  className={`block px-4 py-2 rounded-lg ${isSidebarLinkActive('/dashboard/analytics') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50'}`}
-                >
-                  <div className="flex items-center">
-                    <svg className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                    Analytics
                   </div>
                 </Link>
               </li>
@@ -200,11 +173,19 @@ const Dashboard: React.FC = () => {
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
         <div className="container mx-auto px-4 py-6">
-          <Outlet context={{ userStartups, fetchUserStartups }} />
+          {/* Pass startups and loading from context instead of state, and getStartups instead of fetchUserStartups */}
+          <Outlet context={{ userStartups: startups, fetchUserStartups: getStartups, loading }} />
         </div>
       </div>
     </div>
   );
 };
 
-export default Dashboard;
+export default Sidebar;
+
+
+
+
+
+
+

@@ -1,17 +1,14 @@
 // client/src/pages/DashboardOverview.tsx
 import React, { useState, useEffect } from 'react';
-import { Link, useOutletContext } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useStartup } from '../../context/StartupContext';
 import { Startup } from '../../types/index';
-
-interface DashboardContextType {
-  userStartups: Startup[];
-  fetchUserStartups: () => Promise<void>;
-}
 
 const DashboardOverview: React.FC = () => {
   const { user } = useAuth();
-  const { userStartups } = useOutletContext<DashboardContextType>();
+  const { startups, loading, getStartups } = useStartup();
+  const [userStartups, setUserStartups] = useState<Startup[]>([]);
   const [stats, setStats] = useState({
     totalStartups: 0,
     pendingVerification: 0,
@@ -19,9 +16,37 @@ const DashboardOverview: React.FC = () => {
     connections: 0
   });
 
+  // Fetch user's startups when component mounts
   useEffect(() => {
-    // Update stats based on user startups
-    if (userStartups) {
+    const fetchUserStartups = async () => {
+      if (user?._id) {
+        try {
+          // Using the context's getStartups with a query param to filter by user
+          await getStartups(`createdBy=${user._id}`);
+        } catch (error) {
+          console.error('Error fetching user startups:', error);
+        }
+      }
+    };
+
+    fetchUserStartups();
+  }, [user, getStartups]);
+
+  // // Update userStartups when startups from context change
+  // useEffect(() => {
+  //   if (!loading && startups.length > 0) {
+  //     // Filter startups that belong to the current user if needed
+  //     // This might be redundant if the API already filters by user
+  //     const filteredStartups = startups.filter(
+  //       startup => startup.createdBy === user?._id
+  //     );
+  //     setUserStartups(filteredStartups);
+  //   }
+  // }, [startups, loading, user]);
+
+  // Update stats based on user startups
+  useEffect(() => {
+    if (userStartups.length > 0) {
       setStats({
         totalStartups: userStartups.length,
         pendingVerification: userStartups.filter(s => !s.isVerified).length,
@@ -38,11 +63,19 @@ const DashboardOverview: React.FC = () => {
     return num.toString();
   };
 
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Dashboard</h1>
-        <p className="text-gray-600">Welcome back, {user?.name || 'Founder'}!</p>
+        <p className="text-gray-600">Welcome back, {user?.firstName || 'Founder'}!</p>
       </div>
 
       {/* Stats Cards */}

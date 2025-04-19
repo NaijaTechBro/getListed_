@@ -2,20 +2,19 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import StartupCard from '../../components/startup/StartupCard';
-// import { getStartups } from'../context/AuthContext';
-import { Startup } from '../../types';
+import { Startup, StartupFilter } from '../../types';
+import { useStartup } from '../../context/StartupContext';
 
 const StartupDirectory: React.FC = () => {
-  const [startups, setStartups] = useState<Startup[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [filters, setFilters] = useState({
+  const location = useLocation();
+  const { startups, loading, getStartups } = useStartup();
+  
+  const [filters, setFilters] = useState<StartupFilter>({
     category: '',
     country: '',
     stage: '',
     searchTerm: ''
   });
-
-  const location = useLocation();
 
   useEffect(() => {
     // Parse query parameters
@@ -30,7 +29,6 @@ const StartupDirectory: React.FC = () => {
   }, [location.search]);
 
   const fetchStartups = async () => {
-    setLoading(true);
     try {
       const queryParams = new URLSearchParams();
       if (filters.category) queryParams.append('category', filters.category);
@@ -38,12 +36,9 @@ const StartupDirectory: React.FC = () => {
       if (filters.stage) queryParams.append('stage', filters.stage);
       if (filters.searchTerm) queryParams.append('search', filters.searchTerm);
       
-      const response = await getStartups(queryParams.toString());
-      setStartups(response.data);
+      await getStartups(queryParams.toString());
     } catch (error) {
       console.error('Error fetching startups:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -116,7 +111,7 @@ const StartupDirectory: React.FC = () => {
               >
                 <option value="">All Stages</option>
                 {['Idea', 'Pre-seed', 'Seed', 'Series A', 'Series B', 'Series C', 'Growth', 'Established'].map(stage => (
-                  <option key={stage} value={stage}>{stage}</option>
+                  <option key={stage} value={stage.toLowerCase()}>{stage}</option>
                 ))}
               </select>
             </div>

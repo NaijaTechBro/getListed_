@@ -6,7 +6,7 @@ interface ProtectedRouteProps {
   allowedRoles?: string[];
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles = ['user', 'admin', 'business'] }) => {
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles = ['user', 'admin', 'founder'] }) => {
   const { isAuthenticated, loading, user } = useAuth();
   const location = useLocation();
   

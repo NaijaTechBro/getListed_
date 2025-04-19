@@ -1,88 +1,3 @@
-// import React from 'react';
-// import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-// import { AutoProvider, useAuth } from './context/AuthContext';
-// import HomePage from './pages/Home';
-// import LoginPage from './pages/Auth/LoginPage';
-// import RegisterPage from './pages/Auth/RegisterPage';
-// import ForgotPasswordPage from './pages/Auth/ForgotPasswordPage';
-// import ResetPasswordPage from './pages/Auth/ResetPasswordPage';
-// import StartupDirectory from './pages/Startup/StartupDirectory';
-// import NotFoundPage from './pages/NotFoundPage';
-// import Layout from './components/layout/Layout';
-// import './index.css';
-
-// // const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-// //   const { user, loading } = useAuth();
-  
-// //   if (loading) {
-// //     return <div className="flex items-center justify-center h-screen">Loading...</div>;
-// //   }
-  
-// //   if (!user) {
-// //     return <Navigate to="/login" />;
-// //   };
-  
-// //   return <>{children}</>;
-// // };
-
-// // const CreatorRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-// //   const { user, loading } = useAuth();
-  
-// //   if (loading) {
-// //     return <div className="flex items-center justify-center h-screen">Loading...</div>;
-// //   }
-  
-// //   if (!user || !user.isCreator) {
-// //     return <Navigate to="/" />;
-// //   }
-  
-// //   return <>{children}</>;
-// // };
-
-// const App: React.FC = () => {
-//   return (
-//       <Router>
-//         <Layout>
-//           <Routes>
-//             <Route path="/" element={<HomePage />} />
-//             <Route path="/login" element={<LoginPage />} />
-//             <Route path="/register" element={<RegisterPage />} />
-//             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-//             <Route path="/reset-password" element={<ResetPasswordPage />} /> 
-//             <Route 
-//               path="/directory" 
-//               element={
-//                   <StartupDirectory />
-//               } 
-//             />
-// {/* 
-//             <Route 
-//               path="/dashboard" 
-//               element={
-//                 <CreatorRoute>
-//                   <CreatorDashboard />
-//                 </CreatorRoute>
-//               } 
-//             />
-//             <Route 
-//               path="/content/:contentId" 
-//               element={
-//                 <ProtectedRoute>
-//                   <ContentPage />
-//                 </ProtectedRoute>
-//               } 
-//               /> */}
-//             <Route path="*" element={<NotFoundPage />} />
-//           </Routes>
-//         </Layout>
-//       </Router>
-//   );
-// };
-
-// export default App;
-
-
-
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
@@ -96,11 +11,10 @@ import ForgotPasswordPage from './pages/Auth/ForgotPasswordPage';
 import ResetPasswordPage from './pages/Auth/ResetPasswordPage';
 import VerifyEmailPage from './pages/Auth/VerifyEmailPage';
 import VerificationSentPage from './pages/Auth/VerificationSentPage';
-// import UnauthorizedPage from './pages/UnauthorizedPage';
 import NotFoundPage from './pages/NotFoundPage';
 
 // Protected pages
-import DashboardPage from './pages/Dashboard/Dashboard';
+import DashboardPage from './pages/Dashboard/DashboardPage';
 // import ProfilePage from './pages/ProfilePage';
 // import SettingsPage from './pages/SettingsPage';
 
@@ -110,6 +24,11 @@ import DashboardPage from './pages/Dashboard/Dashboard';
 
 // Protected route component
 import ProtectedRoute from './components/ProtectedRoute';
+import MyStartups from './pages/Startup/MyStartups';
+// import DashboardOverview from './pages/Dashboard/DashboardOverview';
+import AddStartupWrapper from './pages/Startup/AddStartupWrapper';
+import UnauthorizedPage from './pages/UnauthorizedPage';
+import StartupDirectory from './pages/Startup/StartupDirectory';
 
 const App: React.FC = () => {
   return (
@@ -125,11 +44,15 @@ const App: React.FC = () => {
           <Route path="/reset-password/:resetToken" element={<ResetPasswordPage />} />
           <Route path="/verify/:token" element={<VerifyEmailPage />} />
           <Route path="/verification-sent" element={<VerificationSentPage />} />
-          {/* <Route path="/unauthorized" element={<UnauthorizedPage />} /> */}
+          <Route path="/unauthorized" element={<UnauthorizedPage />} />
+          <Route path="/directory" element={<StartupDirectory />} />
           
           {/* Protected routes for all authenticated users */}
-          <Route element={<ProtectedRoute />}>
-            <Route path="/dashboard" element={<DashboardPage />} />
+          <Route element={<ProtectedRoute allowedRoles={['founder']} />}>
+            <Route path="/dashboard" element={<DashboardPage/>} />
+            <Route path="/dashboard/my-startups" element={<MyStartups />} />
+            {/* <Route path="/dashboard/analytics" element={<DashboardOverview />} /> */}
+            <Route path="/dashboard/add-startup" element={<AddStartupWrapper />} />
             {/* <Route path="/profile" element={<ProfilePage />} />
             <Route path="/settings" element={<SettingsPage />} /> */}
           </Route>

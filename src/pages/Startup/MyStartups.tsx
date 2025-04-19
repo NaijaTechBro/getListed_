@@ -1,27 +1,29 @@
-// client/src/pages/MyStartups.tsx (continued)
+// client/src/pages/MyStartups.tsx
 import React, { useState } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
 import { Startup } from '../../types/index';
-import { deleteStartup } from '../../context/AuthContext';
+import { useStartup } from '../../context/StartupContext'; // Import useStartup hook
 
 interface DashboardContextType {
   userStartups: Startup[];
   fetchUserStartups: () => Promise<void>;
+  loading: boolean;
 }
 
 const MyStartups: React.FC = () => {
   const { userStartups, fetchUserStartups } = useOutletContext<DashboardContextType>();
+  const { deleteStartup } = useStartup(); // Get deleteStartup from context
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
   const [startupToDelete, setStartupToDelete] = useState<string | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
   };
 
-  const openDeleteModal = (startupId: string) => {
-    setStartupToDelete(startupId);
+  const openDeleteModal = (startup_id: string) => {
+    setStartupToDelete(startup_id);
     setShowDeleteModal(true);
   };
 
@@ -33,22 +35,22 @@ const MyStartups: React.FC = () => {
   const handleDeleteStartup = async () => {
     if (!startupToDelete) return;
     
-    setLoading(true);
+    setIsDeleting(true);
     try {
-      await deleteStartup(startupToDelete);
-      await fetchUserStartups();
+      await deleteStartup(startupToDelete); // Use deleteStartup from context
+      await fetchUserStartups(); // Refresh the startup list
       closeDeleteModal();
     } catch (error) {
       console.error('Error deleting startup:', error);
     } finally {
-      setLoading(false);
+      setIsDeleting(false);
     }
   };
 
   const filteredStartups = userStartups.filter(startup => 
     startup.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    startup.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    startup.country.toLowerCase().includes(searchTerm.toLowerCase())
+    (startup.category && startup.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (startup.country && startup.country.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   return (
@@ -69,7 +71,7 @@ const MyStartups: React.FC = () => {
         </Link>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      <div className="bg-white rounded-lg shadow-md overflow-h_idden">
         <div className="p-4 border-b border-gray-200">
           <div className="max-w-md">
             <div className="relative rounded-md shadow-sm">
@@ -116,30 +118,30 @@ const MyStartups: React.FC = () => {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="min-w-full div_ide-y div_ide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-w_ider">
                     Startup
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-w_ider">
                     Category
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-w_ider">
                     Country
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-w_ider">
                     Status
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-w_ider">
                     Metrics
                   </th>
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-w_ider">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white div_ide-y div_ide-gray-200">
                 {filteredStartups.map((startup) => (
                   <tr key={startup._id}>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -153,36 +155,34 @@ const MyStartups: React.FC = () => {
                         </div>
                         <div>
                           <div className="font-medium text-gray-900">{startup.name}</div>
-                          <div className="text-sm text-gray-500">{startup.foundingDate ? new Date(startup.foundingDate).getFullYear() : 'N/A'}</div>
+                          <div className="text-sm text-gray-500">
+                            {startup.foundingDate ? new Date(startup.foundingDate).getFullYear() : 'N/A'}
+                          </div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 inline-flex text-xs leading-5 font-medium rounded-full bg-gray-100 text-gray-800">
-                        {startup.category}
-                      </span>
-                      {startup.subCategory && (
-                        <span className="ml-1 text-xs text-gray-500">{startup.subCategory}</span>
+                      {startup.category && (
+                        <span className="px-2 inline-flex text-xs leading-5 font-medium rounded-full bg-gray-100 text-gray-800">
+                          {startup.category}
+                        </span>
+                      )}
+                      {startup.stage && (
+                        <span className="ml-1 text-xs text-gray-500">{startup.stage}</span>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {startup.country}{startup.city ? `, ${startup.city}` : ''}
+                      {startup.country || 'Not specified'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {startup.isVerified ? (
-                        <span className="px-2 inline-flex text-xs leading-5 font-medium rounded-full bg-green-100 text-green-800">
-                          Verified
-                        </span>
-                      ) : (
-                        <span className="px-2 inline-flex text-xs leading-5 font-medium rounded-full bg-yellow-100 text-yellow-800">
-                          Pending
-                        </span>
-                      )}
+                      <span className="px-2 inline-flex text-xs leading-5 font-medium rounded-full bg-green-100 text-green-800">
+                        Active
+                      </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-500">
-                        <div>{startup.metrics?.views || 0} views</div>
-                        <div>{startup.metrics?.connections || 0} connections</div>
+                        <div>0 views</div>
+                        <div>0 connections</div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -219,11 +219,11 @@ const MyStartups: React.FC = () => {
       {showDeleteModal && (
         <div className="fixed z-10 inset-0 overflow-y-auto">
           <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+            <div className="fixed inset-0 transition-opacity" aria-h_idden="true">
               <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
             </div>
-            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <span className="h_idden sm:inline-block sm:align-m_iddle sm:h-screen" aria-h_idden="true">&#8203;</span>
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-h_idden shadow-xl transform transition-all sm:my-8 sm:align-m_iddle sm:max-w-lg sm:w-full">
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div className="sm:flex sm:items-start">
                   <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
@@ -247,15 +247,15 @@ const MyStartups: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleDeleteStartup}
-                  disabled={loading}
+                  disabled={isDeleting}
                   className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
                 >
-                  {loading ? 'Deleting...' : 'Delete'}
+                  {isDeleting ? 'Deleting...' : 'Delete'}
                 </button>
                 <button
                   type="button"
                   onClick={closeDeleteModal}
-                  disabled={loading}
+                  disabled={isDeleting}
                   className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
                 >
                   Cancel

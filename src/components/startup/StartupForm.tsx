@@ -1,9 +1,9 @@
 // client/src/components/startup/StartupForm.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { createStartup, getStartupById, updateStartup } from '../../services/api';
+import { useStartup } from '../../context/StartupContext';
 import { useAuth } from '../../context/AuthContext';
-import { Startup } from '../../types';
+import { Startup, Founder } from '../../types';
 
 interface StartupFormProps {
   isEditing?: boolean;
@@ -13,8 +13,16 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
+  const { 
+    startup, 
+    loading, 
+    error: contextError, 
+    getStartup, 
+    createStartup, 
+    updateStartup 
+  } = useStartup();
   
-  const initialState = {
+  const initialState: Omit<Startup, '_id' | 'createdBy' | 'isVerified' | 'createdAt' | 'updatedAt'> = {
     name: '',
     logo: '',
     tagline: '',
@@ -29,7 +37,7 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
     metrics: {
       fundingTotal: 0,
       employees: 1,
-      revenue: 'Pre-revenue'
+      revenue: 0
     },
     socialProfiles: {
       linkedin: '',
@@ -41,7 +49,6 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
   };
 
   const [formData, setFormData] = useState<Omit<Startup, '_id' | 'createdBy' | 'isVerified' | 'createdAt' | 'updatedAt'>>(initialState);
-  const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<boolean>(false);
 
@@ -51,24 +58,70 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
     }
   }, [isEditing, id]);
 
-  const fetchStartupData = async (startupId: string) => {
-    try {
-      setLoading(true);
-      const response = await getStartupById(startupId);
-      
+  useEffect(() => {
+    // Update form data when startup data is loaded from context
+    if (startup && isEditing) {
       // Format date for input field
-      const startup = response.data;
-      if (startup.foundingDate) {
-        const date = new Date(startup.foundingDate);
-        startup.foundingDate = date.toISOString().split('T')[0];
+      const formattedStartup = {...startup};
+      if (formattedStartup.foundingDate) {
+        const date = new Date(formattedStartup.foundingDate);
+        formattedStartup.foundingDate = date.toISOString().split('T')[0];
       }
       
-      setFormData(startup);
+      // Convert metrics.revenue from string to number if needed
+      if (typeof formattedStartup.metrics.revenue === 'string') {
+        formattedStartup.metrics = {
+          ...formattedStartup.metrics,
+          revenue: parseRevenueToNumber(formattedStartup.metrics.revenue as unknown as string)
+        };
+      }
+      
+      setFormData(formattedStartup);
+    }
+  }, [startup, isEditing]);
+
+  // Helper function to convert revenue string to number
+  const parseRevenueToNumber = (revenue: string): number => {
+    // This is a simple conversion - adjust based on your actual revenue format
+    if (revenue === 'Pre-revenue') return 0;
+    if (revenue === 'Undisclosed') return 0;
+    
+    // For values like "$1K-$10K", return the average
+    if (revenue.includes('-')) {
+      const parts = revenue.replace(/[^0-9K.M-]/g, '').split('-');
+      const min = parseRevenueValue(parts[0]);
+      const max = parseRevenueValue(parts[1]);
+      return (min + max) / 2;
+    }
+    
+    return parseRevenueValue(revenue.replace(/[^0-9K.M+]/g, ''));
+  };
+
+  const parseRevenueValue = (value: string): number => {
+    if (value.includes('K')) {
+      return parseFloat(value.replace('K', '')) * 1000;
+    } else if (value.includes('M')) {
+      return parseFloat(value.replace('M', '')) * 1000000;
+    }
+    return parseFloat(value);
+  };
+
+  // Convert number back to revenue range string for display
+  const formatRevenueForDisplay = (revenue: number): string => {
+    if (revenue === 0) return 'Pre-revenue';
+    if (revenue <= 10000) return '$1K-$10K';
+    if (revenue <= 100000) return '$10K-$100K';
+    if (revenue <= 1000000) return '$100K-$1M';
+    if (revenue <= 10000000) return '$1M-$10M';
+    return '$10M+';
+  };
+
+  const fetchStartupData = async (startupId: string) => {
+    try {
+      await getStartup(startupId);
     } catch (error) {
       console.error('Error fetching startup:', error);
       setError('Failed to load startup data.');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -78,11 +131,15 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
     // Handle nested properties
     if (name.includes('.')) {
       const [parent, child] = name.split('.');
+      
       setFormData(prev => ({
         ...prev,
         [parent]: {
           ...prev[parent as keyof typeof prev],
-          [child]: value
+          [child]: parent === 'metrics' ? 
+            (child === 'fundingTotal' || child === 'employees' || child === 'revenue' ? 
+              Number(value) : value) : 
+            value
         }
       }));
     } else {
@@ -120,14 +177,23 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError('');
     
     try {
+      // Convert revenue display string to number if needed
+      const submissionData = {...formData};
+      
+      // Make sure metrics is properly formatted as numbers
+      submissionData.metrics = {
+        fundingTotal: Number(submissionData.metrics.fundingTotal),
+        employees: Number(submissionData.metrics.employees),
+        revenue: Number(submissionData.metrics.revenue)
+      };
+      
       if (isEditing && id) {
-        await updateStartup(id, formData);
+        await updateStartup(id, submissionData);
       } else {
-        await createStartup(formData);
+        await createStartup(submissionData);
       }
       
       setSuccess(true);
@@ -139,8 +205,6 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
     } catch (error) {
       console.error('Error saving startup:', error);
       setError('Failed to save startup. Please try again.');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -164,9 +228,9 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
         </div>
       )}
       
-      {error && (
+      {(error || contextError) && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
-          {error}
+          {error || contextError}
         </div>
       )}
       
@@ -388,7 +452,9 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
               </label>
               <select
                 name="metrics.revenue"
-                value={formData.metrics.revenue}
+                value={typeof formData.metrics.revenue === 'number' ? 
+                  formatRevenueForDisplay(formData.metrics.revenue) : 
+                  formData.metrics.revenue}
                 onChange={handleChange}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               >
