@@ -214,9 +214,9 @@ const Navbar: React.FC = () => {
               <Link to="/investors" className="font-medium hover:text-indigo-600 transition-colors">For Investors</Link>
             </div>
             <div className="relative group">
-              <Link to="/resources" className="font-medium hover:text-indigo-600 transition-colors">Resources</Link>
+              <Link to="/pitch-deck" className="font-medium hover:text-indigo-600 transition-colors">Pitch Deck Builder</Link>
             </div>
-            <Link to="/pricing" className="font-medium hover:text-indigo-600 transition-colors">Pricing</Link>
+            <Link to="/about" className="font-medium hover:text-indigo-600 transition-colors">About</Link>
           </div>
         </div>
         
@@ -278,18 +278,18 @@ const Navbar: React.FC = () => {
                 For Investors
               </Link>
               <Link 
-                to="/resources" 
+                to="/pitch-deck" 
                 className="py-2 font-medium hover:text-indigo-600"
                 onClick={() => setIsMenuOpen(false)}
               >
-                Resources
+                Pitch Deck Builder
               </Link>
               <Link 
-                to="/pricing" 
+                to="/about" 
                 className="py-2 font-medium hover:text-indigo-600"
                 onClick={() => setIsMenuOpen(false)}
               >
-                Pricing
+                About
               </Link>
               <div className="flex flex-col space-y-2 mt-4">
                 {isAuthenticated ? (

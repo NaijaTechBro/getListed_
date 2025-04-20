@@ -18,29 +18,23 @@ const CareersPage: React.FC = () => {
       type: 'Full-time'
     },
     {
-      title: 'Product Designer',
-      department: 'Design',
-      location: 'New York',
-      type: 'Full-time'
-    },
-    {
       title: 'Backend Developer',
       department: 'Engineering',
       location: 'Remote',
       type: 'Full-time'
     },
-    {
-      title: 'Customer Success Manager',
-      department: 'Sales',
-      location: 'London',
-      type: 'Full-time'
-    },
-    {
-      title: 'Marketing Specialist',
-      department: 'Marketing',
-      location: 'Remote',
-      type: 'Contract'
-    }
+    // {
+    //   title: 'Customer Success Manager',
+    //   department: 'Sales',
+    //   location: 'London',
+    //   type: 'Full-time'
+    // },
+    // {
+    //   title: 'Marketing Specialist',
+    //   department: 'Marketing',
+    //   location: 'Remote',
+    //   type: 'Contract'
+    // }
   ];
 
   return (

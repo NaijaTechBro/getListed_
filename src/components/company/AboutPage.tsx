@@ -11,25 +11,25 @@ interface TeamMember {
 const AboutPage: React.FC = () => {
   const teamMembers: TeamMember[] = [
     {
-      name: 'Sarah Johnson',
+      name: 'Sodiq Baki Adeiza',
       role: 'CEO & Co-founder',
       imageUrl: '/api/placeholder/200/200'
     },
-    {
-      name: 'Michael Chen',
-      role: 'CTO & Co-founder',
-      imageUrl: '/api/placeholder/200/200'
-    },
-    {
-      name: 'Olivia Rodriguez',
-      role: 'Head of Design',
-      imageUrl: '/api/placeholder/200/200'
-    },
-    {
-      name: 'David Kim',
-      role: 'Head of Engineering',
-      imageUrl: '/api/placeholder/200/200'
-    }
+    // {
+    //   name: 'Michael Chen',
+    //   role: 'CTO & Co-founder',
+    //   imageUrl: '/api/placeholder/200/200'
+    // },
+    // {
+    //   name: 'Olivia Rodriguez',
+    //   role: 'Head of Design',
+    //   imageUrl: '/api/placeholder/200/200'
+    // },
+    // {
+    //   name: 'David Kim',
+    //   role: 'Head of Engineering',
+    //   imageUrl: '/api/placeholder/200/200'
+    // }
   ];
 
   return (
