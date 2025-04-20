@@ -121,7 +121,7 @@ const HomePage: React.FC = () => {
             Join thousands of African startups already using GetListed to connect with investors and partners.
           </p>
           <div className="flex justify-center space-x-4">
-            <Link to="/signup">
+            <Link to="/register">
               <button className="bg-black text-white px-6 py-3 rounded-md font-medium hover:bg-gray-800">
                 List Your Startup
               </button>

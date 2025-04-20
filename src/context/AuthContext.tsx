@@ -20,7 +20,7 @@ interface AuthState {
 
 // Define context interface
 interface AuthContextType extends AuthState {
-  register: (firstName: string, lastName: string, email: string, password: string, companyName?: string) => Promise<void>;
+  register: (firstName: string, lastName: string, email: string, password: string, role: string) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
@@ -84,7 +84,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   // Register user
-  const register = async (firstName: string, lastName: string, email: string, password: string) => {
+  const register = async (firstName: string, lastName: string, email: string, password: string, role: string) => {
     try {
       setAuthState(prev => ({ ...prev, loading: true }));
       
@@ -92,7 +92,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         firstName,
         lastName,
         email,
-        password
+        password,
+        role
       });
       
       setAuthState({
