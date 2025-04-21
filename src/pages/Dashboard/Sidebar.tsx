@@ -69,7 +69,16 @@ const Sidebar: React.FC = () => {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={sidebarOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"} />
           </svg>
         </button>
-        <div className="ml-4 text-xl font-bold text-indigo-600">GetListed</div>
+        <div className="mr-4 sm:mr-8 flex items-center">
+                      <svg className="w-7 h-7 sm:w-8 sm:h-8" viewBox="0 0 24 24" fill="currentColor">
+                        <circle cx="12" cy="12" r="11" fill="black" />
+                        <circle cx="12" cy="12" r="8" fill="white" />
+                        <circle cx="12" cy="12" r="4" fill="black" />
+                      </svg>
+                      <Link to="/">
+                        <span className="ml-2 font-bold text-lg sm:text-xl">GetListed</span>
+                      </Link>
+                    </div>
       </div>
 
       {/* Overlay for mobile */}
