@@ -102,7 +102,7 @@ const StartupShowcase: React.FC<ExtendedStartupShowcaseProps> = ({
                   key={startup._id}
                   className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
                 >
-                  <Link to={`/startup/${startup._id}`}>
+                  <Link to={`/startup-profile/${startup._id}`}>
                     <div className="h-48 bg-indigo-50 flex items-center justify-center p-4">
                       {startup.logo ? (
                         <img

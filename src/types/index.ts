@@ -31,7 +31,7 @@ export interface Startup {
       employees: number;
       connections: number;
       views: number;
-      revenue: number;
+      revenue: 'Pre-revenue' | '$1K-$10K' | '$10K-$100K' | '$100K-$1M' | '$1M-$10M' | '$10M+' | 'Undisclosed';
     };
     socialProfiles: {
       linkedin: string;

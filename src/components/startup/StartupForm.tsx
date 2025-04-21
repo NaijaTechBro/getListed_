@@ -1,678 +1,563 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { useStartup } from '../../context/StartupContext';
-import { Startup } from '../../types';
-
-interface StartupFormProps {
-  isEditing?: boolean;
-}
-
-const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
-  const navigate = useNavigate();
-  const { id } = useParams<{ id: string }>();
-  const { 
-    startup, 
-    loading, 
-    error: contextError, 
-    getStartup, 
-    createStartup, 
-    updateStartup,
-    clearStartupError 
-  } = useStartup();
+  import React, { useState, useEffect } from 'react';
+  import { useNavigate, useParams } from 'react-router-dom';
+  import { useStartup } from '../../context/StartupContext';
+  import { Startup, FundingRound } from '../../types';
   
-  // Define initial state with proper typing based on the Startup interface
-  const initialState: Omit<Startup, '_id' | 'createdBy' | 'isVerified' | 'createdAt' | 'updatedAt'> = {
-    name: '',
-    logo: '',
-    tagline: '',
-    description: '',
-    website: '',
-    category: '',
-    subCategory: '',
-    country: '',
-    city: '',
-    foundingDate: '',
-    stage: '',
-    metrics: {
-      fundingTotal: 0,
-      employees: 1,
-      connections: 0,
-      views: 0,
-      revenue: 0
-    },
-    socialProfiles: {
-      linkedin: '',
-      twitter: '',
-      facebook: '',
-      instagram: ''
-    },
-    founders: [{ name: '', role: '', linkedin: '' }]
-  };
-
-  // Use a typed form state that matches what we expect for API operations
-  const [formData, setFormData] = useState<Omit<Startup, '_id' | 'createdBy' | 'isVerified' | 'createdAt' | 'updatedAt'>>(initialState);
-  const [formError, setFormError] = useState<string>('');
-  const [success, setSuccess] = useState<boolean>(false);
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [activeSection, setActiveSection] = useState<string>('basic');
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-
-  // Clear context error when component unmounts or when fields change
-  useEffect(() => {
-    return () => {
-      clearStartupError();
-    };
-  }, [clearStartupError]);
-
-  useEffect(() => {
-    if (contextError) {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  }, [contextError]);
-
-  useEffect(() => {
-    // Only fetch startup data if we're in edit mode and have an ID
-    if (isEditing && id) {
-      fetchStartupData(id);
-    }
-  }, [isEditing, id]);
-
-  useEffect(() => {
-    // Update form data when startup data is loaded from context
-    if (startup && isEditing) {
-      try {
-        // Format date for input field
-        const formattedStartup = {...startup};
-        if (formattedStartup.foundingDate) {
-          const date = new Date(formattedStartup.foundingDate);
-          formattedStartup.foundingDate = date.toISOString().split('T')[0];
+  const StartupForm: React.FC = () => {
+    const navigate = useNavigate();
+    const { id } = useParams<{ id: string }>();
+    const isEditing = !!id;
+    
+    // Access startup context methods
+    const { 
+      createStartup, 
+      updateStartup, 
+      getStartup, 
+      startup, 
+      loading, 
+      error, 
+      clearStartupError,
+      clearStartup 
+    } = useStartup();
+  
+    // Form sections management
+    const [activeSection, setActiveSection] = useState<'basic' | 'location' | 'metrics' | 'social' | 'founders' | 'funding'>('basic');
+    
+    // Revenue options matching the enum in Mongoose schema
+    const revenueOptions = ['Pre-revenue', '$1K-$10K', '$10K-$100K', '$100K-$1M', '$1M-$10M', '$10M+', 'Undisclosed'];
+    
+    // Initialize form data
+    const [formData, setFormData] = useState<Omit<Startup, '_id' | 'createdBy' | 'isVerified' | 'createdAt' | 'updatedAt' | 'metrics.connections' | 'metrics.views'>>({
+      name: '',
+      logo: '',
+      tagline: '',
+      description: '',
+      website: '',
+      foundingDate: '',
+      category: '',
+      subCategory: '',
+      country: '',
+      city: '',
+      stage: '',
+      products: '',
+      metrics: {
+        fundingTotal: 0,
+        employees: 1,
+        connections: 0,
+        views: 0,
+        revenue: 'Undisclosed' // Changed from number to string enum value
+      },
+      socialProfiles: {
+        linkedin: '',
+        twitter: '',
+        facebook: '',
+        instagram: ''
+      },
+      founders: [
+        {
+          name: '',
+          role: '',
+          linkedin: '',
+          bio: ''
         }
-        
-        // Convert metrics.revenue from string to number if needed
-        if (typeof formattedStartup.metrics.revenue === 'string') {
-          formattedStartup.metrics = {
-            ...formattedStartup.metrics,
-            revenue: parseRevenueToNumber(formattedStartup.metrics.revenue as unknown as string)
-          };
-        }
-        
-        setFormData(formattedStartup);
-      } catch (err) {
-        console.error('Error processing startup data:', err);
-        setFormError('Could not process startup data correctly.');
+      ],
+      fundingRounds: []
+    });
+  
+    // Form submission state
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  
+    // Load existing startup data if editing
+    useEffect(() => {
+      if (isEditing && id) {
+        getStartup(id);
       }
-    }
-  }, [startup, isEditing]);
+      
+      // Cleanup function
+      return () => {
+        clearStartup();
+        clearStartupError();
+      };
+    }, [isEditing, id, getStartup, clearStartup, clearStartupError]);
+  
+    // Populate form when startup data loads
+    useEffect(() => {
+      if (startup && isEditing) {
+        setFormData({
+          name: startup.name || '',
+          logo: startup.logo || '',
+          tagline: startup.tagline || '',
+          description: startup.description || '',
+          website: startup.website || '',
+          foundingDate: startup.foundingDate || '',
+          category: startup.category || '',
+          subCategory: startup.subCategory || '',
+          country: startup.country || '',
+          city: startup.city || '',
+          stage: startup.stage || '',
+          products: startup.products || '',
+          metrics: {
+            fundingTotal: startup.metrics?.fundingTotal || 0,
+            employees: startup.metrics?.employees || 1,
+            connections: startup.metrics?.connections || 0,
+            views: startup.metrics?.views || 0,
+            revenue: startup.metrics?.revenue || 'Undisclosed' // Use the string value directly
+          },
+          socialProfiles: {
+            linkedin: startup.socialProfiles?.linkedin || '',
+            twitter: startup.socialProfiles?.twitter || '',
+            facebook: startup.socialProfiles?.facebook || '',
+            instagram: startup.socialProfiles?.instagram || ''
+          },
+          founders: startup.founders && startup.founders.length > 0 
+            ? startup.founders.map(founder => ({
+                name: founder.name || '',
+                role: founder.role || '',
+                linkedin: founder.linkedin || '',
+                bio: founder.bio || ''
+              }))
+            : [{ name: '', role: '', linkedin: '', bio: '' }],
+          fundingRounds: startup.fundingRounds || []
+        });
+      }
+    }, [startup, isEditing]);
 
-  // Helper function to convert revenue string to number
-  const parseRevenueToNumber = (revenue: string): number => {
-    // This is a simple conversion - adjust based on your actual revenue format
-    if (revenue === 'Pre-revenue') return 0;
-    if (revenue === 'Undisclosed') return 0;
+  
+    // Fixed handleChange function to properly handle nested properties
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+      const { name, value } = e.target;
+      
+      // Clear validation error for this field when changed
+      if (validationErrors[name]) {
+        setValidationErrors(prev => {
+          const updated = {...prev};
+          delete updated[name];
+          return updated;
+        });
+      }
+      
+      // Handle nested properties
+      if (name.includes('.')) {
+        const [parent, child] = name.split('.');
+        
+        setFormData(prev => {
+          // Create a safe copy of the nested object, defaulting to empty object if undefined
+          const parentObject = prev[parent as keyof typeof prev] || {};
+          
+          // Type guard to ensure we're dealing with an object
+          if (typeof parentObject === 'object' && parentObject !== null) {
+            return {
+              ...prev,
+              [parent]: {
+                ...parentObject,
+                [child]: parent === 'metrics' ? 
+                  (child === 'fundingTotal' || child === 'employees' ? 
+                    Number(value) : value) : 
+                  value
+              }
+            };
+          }
+          return prev;
+        });
+      } else {
+        setFormData(prev => ({ ...prev, [name]: value }));
+      }
+    };
+
+  // Founder change handler
+  const handleFounderChange = (index: number, e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    const newFounders = [...formData.founders];
+    newFounders[index] = {
+      ...newFounders[index],
+      [name]: value
+    };
     
-    // For values like "$1K-$10K", return the average
-    if (revenue.includes('-')) {
-      const parts = revenue.replace(/[^0-9K.M-]/g, '').split('-');
-      const min = parseRevenueValue(parts[0]);
-      const max = parseRevenueValue(parts[1]);
-      return (min + max) / 2;
-    }
+    setFormData(prev => ({
+      ...prev,
+      founders: newFounders
+    }));
     
-    return parseRevenueValue(revenue.replace(/[^0-9K.M+]/g, ''));
-  };
-
-  const parseRevenueValue = (value: string): number => {
-    if (value.includes('K')) {
-      return parseFloat(value.replace('K', '')) * 1000;
-    } else if (value.includes('M')) {
-      return parseFloat(value.replace('M', '')) * 1000000;
-    }
-    return parseFloat(value);
-  };
-
-  // Convert number back to revenue range string for display
-  const formatRevenueForDisplay = (revenue: number): string => {
-    if (revenue === 0) return 'Pre-revenue';
-    if (revenue <= 10000) return '$1K-$10K';
-    if (revenue <= 100000) return '$10K-$100K';
-    if (revenue <= 1000000) return '$100K-$1M';
-    if (revenue <= 10000000) return '$1M-$10M';
-    return '$10M+';
-  };
-
-  const fetchStartupData = async (startupId: string) => {
-    try {
-      // Clear any existing errors before fetching
-      setFormError('');
-      await getStartup(startupId);
-    } catch (error) {
-      console.error('Error fetching startup:', error);
-      setFormError('Failed to load startup data. Please try again later.');
+    // Clear validation errors for this field
+    const errorKey = `founders[${index}].${name}`;
+    if (validationErrors[errorKey]) {
+      setValidationErrors(prev => ({
+        ...prev,
+        [errorKey]: ''
+      }));
     }
   };
 
+  // Add new founder
+  const addFounder = () => {
+    setFormData(prev => ({
+      ...prev,
+      founders: [...prev.founders, { name: '', role: '', linkedin: '', bio: '' }]
+    }));
+  };
+
+  // Remove founder
+  const removeFounder = (index: number) => {
+    if (formData.founders.length > 1) {
+      const newFounders = [...formData.founders];
+      newFounders.splice(index, 1);
+      
+      setFormData(prev => ({
+        ...prev,
+        founders: newFounders
+      }));
+    }
+  };
+
+  // Funding round handlers
+  const handleFundingRoundChange = (index: number, e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    const newRounds = [...(formData.fundingRounds || [])];
+    
+    newRounds[index] = {
+      ...newRounds[index],
+      [name]: name === 'amount' || name === 'valuation' ? parseFloat(value) : value
+    };
+    
+    setFormData(prev => ({
+      ...prev,
+      fundingRounds: newRounds
+    }));
+    
+    // Clear validation errors
+    const errorKey = `fundingRounds[${index}].${name}`;
+    if (validationErrors[errorKey]) {
+      setValidationErrors(prev => ({
+        ...prev,
+        [errorKey]: ''
+      }));
+    }
+  };
+
+  // Add funding round
+  const addFundingRound = () => {
+    const newRound: FundingRound = {
+      stage: '',
+      date: '',
+      amount: 0,
+      valuation: 0,
+      investors: [],
+      notes: ''
+    };
+    
+    setFormData(prev => ({
+      ...prev,
+      fundingRounds: [...(prev.fundingRounds || []), newRound]
+    }));
+  };
+
+  // Remove funding round
+  const removeFundingRound = (index: number) => {
+    const newRounds = [...(formData.fundingRounds || [])];
+    newRounds.splice(index, 1);
+    
+    setFormData(prev => ({
+      ...prev,
+      fundingRounds: newRounds
+    }));
+  };
+
+  // Handle investors for funding rounds
+  const handleInvestorsChange = (roundIndex: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const { value } = e.target;
+    const investors = value.split(',').map(inv => inv.trim());
+    
+    const newRounds = [...(formData.fundingRounds || [])];
+    newRounds[roundIndex] = {
+      ...newRounds[roundIndex],
+      investors: investors
+    };
+    
+    setFormData(prev => ({
+      ...prev,
+      fundingRounds: newRounds
+    }));
+  };
+
+  // Validate form
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
     
-    // Basic validation rules
-    if (!formData.name.trim()) errors.name = 'Startup name is required';
-    if (!formData.tagline.trim()) errors.tagline = 'Tagline is required';
-    if (!formData.description.trim()) errors.description = 'Description is required';
-    if (!formData.category) errors.category = 'Category is required';
-    if (!formData.country) errors.country = 'Country is required';
-    if (!formData.stage) errors.stage = 'Stage is required';
+    // Basic validation
+    if (!formData.name) errors.name = 'Startup name is required';
+    if (!formData.tagline) errors.tagline = 'Tagline is required';
+    if (formData.tagline.length > 100) errors.tagline = 'Tagline must be less than 100 characters';
+    if (!formData.description) errors.description = 'Description is required';
     
-    // Website validation if provided
-    if (formData.website && !isValidUrl(formData.website)) {
+    // URL validations
+    if (formData.logo && !/^https?:\/\/.+/.test(formData.logo)) {
+      errors.logo = 'Please enter a valid URL';
+    }
+    if (formData.website && !/^https?:\/\/.+/.test(formData.website)) {
       errors.website = 'Please enter a valid URL';
     }
     
-    // Validate social profiles if provided
+    // Category and location validations
+    if (!formData.category) errors.category = 'Category is required';
+    if (!formData.country) errors.country = 'Country is required';
+    
+    // Stage validation
+    if (!formData.stage) errors.stage = 'Stage is required';
+    
+    // Social profiles URL validations
     Object.entries(formData.socialProfiles).forEach(([key, value]) => {
-      if (value && !isValidUrl(value)) {
+      if (value && !/^https?:\/\/.+/.test(value)) {
         errors[`socialProfiles.${key}`] = 'Please enter a valid URL';
       }
     });
     
-    // Validate founders
+    // Founders validation
     formData.founders.forEach((founder, index) => {
-      if (founder.linkedin && !isValidUrl(founder.linkedin)) {
+      if (!founder.name) {
+        errors[`founders[${index}].name`] = 'Founder name is required';
+      }
+      if (founder.linkedin && !/^https?:\/\/.+/.test(founder.linkedin)) {
         errors[`founders[${index}].linkedin`] = 'Please enter a valid LinkedIn URL';
+      }
+    });
+    
+    // Funding rounds validation
+    formData.fundingRounds?.forEach((round, index) => {
+      if (round.amount && round.amount < 0) {
+        errors[`fundingRounds[${index}].amount`] = 'Amount cannot be negative';
+      }
+      if (round.valuation && round.valuation < 0) {
+        errors[`fundingRounds[${index}].valuation`] = 'Valuation cannot be negative';
+      }
+      if (!round.stage) {
+        errors[`fundingRounds[${index}].stage`] = 'Funding stage is required';
       }
     });
     
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
-  
-  const isValidUrl = (url: string): boolean => {
-    try {
-      new URL(url);
-      return true;
-    } catch {
-      return false;
-    }
-  };
 
-  // Fixed handleChange function to properly handle nested properties
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    
-    // Clear validation error for this field when changed
-    if (validationErrors[name]) {
-      setValidationErrors(prev => {
-        const updated = {...prev};
-        delete updated[name];
-        return updated;
-      });
-    }
-    
-    // Handle nested properties
-    if (name.includes('.')) {
-      const [parent, child] = name.split('.');
-      
-      setFormData(prev => {
-        // Create a safe copy of the nested object, defaulting to empty object if undefined
-        const parentObject = prev[parent as keyof typeof prev] || {};
-        
-        // Type guard to ensure we're dealing with an object
-        if (typeof parentObject === 'object' && parentObject !== null) {
-          return {
-            ...prev,
-            [parent]: {
-              ...parentObject,
-              [child]: parent === 'metrics' ? 
-                (child === 'fundingTotal' || child === 'employees' || child === 'revenue' ? 
-                  Number(value) : value) : 
-                value
-            }
-          };
-        }
-        return prev;
-      });
-    } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
-    }
-  };
-
-  const handleFounderChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    
-    // Clear validation error for this field when changed
-    const fieldName = `founders[${index}].${name}`;
-    if (validationErrors[fieldName]) {
-      setValidationErrors(prev => {
-        const updated = {...prev};
-        delete updated[fieldName];
-        return updated;
-      });
-    }
-    
-    const updatedFounders = [...formData.founders];
-    updatedFounders[index] = { ...updatedFounders[index], [name]: value };
-    
-    setFormData(prev => ({
-      ...prev,
-      founders: updatedFounders
-    }));
-  };
-
-  const addFounder = () => {
-    setFormData(prev => ({
-      ...prev,
-      founders: [...prev.founders, { name: '', role: '', linkedin: '' }]
-    }));
-  };
-
-  const removeFounder = (index: number) => {
-    if (formData.founders.length > 1) {
-      const updatedFounders = formData.founders.filter((_, i) => i !== index);
-      setFormData(prev => ({
-        ...prev,
-        founders: updatedFounders
-      }));
-    }
-  };
-
+  // Form submission handler
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Reset errors
-    setFormError('');
-    clearStartupError();
-    
-    // Validate form
     if (!validateForm()) {
-      // Find which section has errors and switch to it
-      const errorFields = Object.keys(validationErrors);
-      if (errorFields.length > 0) {
-        // Determine which section to show based on first error
-        const firstError = errorFields[0];
-        
-        if (firstError.includes('founders')) {
-          setActiveSection('founders');
-        } else if (firstError.includes('socialProfiles')) {
-          setActiveSection('social');
-        } else if (firstError.includes('metrics')) {
-          setActiveSection('metrics'); 
-        } else if (firstError === 'category' || firstError === 'country' || firstError === 'city') {
-          setActiveSection('location');
-        } else {
-          setActiveSection('basic');
-        }
-      }
-      
-      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
     
     setIsSubmitting(true);
     
     try {
-      // Prepare the data for submission
-      const submissionData = {...formData};
-      
-      // Make sure metrics is properly formatted as numbers
-      submissionData.metrics = {
-        fundingTotal: Number(submissionData.metrics.fundingTotal),
-        employees: Number(submissionData.metrics.employees),
-        revenue: Number(submissionData.metrics.revenue),
-        connections: submissionData.metrics.connections || 0,
-        views: submissionData.metrics.views || 0
+      // Format data for API
+      const startupData = {
+        ...formData,
+        // Ensure metrics are numbers
+        metrics: {
+          ...formData.metrics,
+          fundingTotal: Number(formData.metrics.fundingTotal),
+          employees: Number(formData.metrics.employees)
+        }
       };
       
-      // Make API call based on whether we're creating or updating
       if (isEditing && id) {
-        await updateStartup(id, submissionData);
+        await updateStartup(id, startupData);
       } else {
-        await createStartup(submissionData);
+        await createStartup(startupData);
       }
       
-      setSuccess(true);
-      
-      // Show success message with smooth animation
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      
-      // Redirect after a delay
-      setTimeout(() => {
-        navigate(isEditing ? `/startup/${id}` : '/dashboard');
-      }, 2000);
-    } catch (error: any) {
-      console.error('Error saving startup:', error);
-      
-      // Handle different types of errors
-      if (error.response?.data?.errors) {
-        // Handle validation errors from API
-        const apiErrors = error.response.data.errors;
-        const formattedErrors: Record<string, string> = {};
-        
-        Object.entries(apiErrors).forEach(([field, message]) => {
-          formattedErrors[field] = message as string;
-        });
-        
-        setValidationErrors(formattedErrors);
-      } else {
-        // General error message
-        setFormError('Failed to save startup. Please check your connection and try again.');
-      }
-      
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // Navigate back to startups list or profile page
+      navigate(isEditing && id ? '/dashboard/my-startups' : `/startup-profile/${id}`);
+    } catch (err) {
+      console.error('Error submitting form:', err);
+      // Error is handled by the context
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const sectionClasses = (section: string) => 
-    `py-2 px-4 cursor-pointer rounded-md transition-all duration-300 ${
-      activeSection === section 
-        ? 'bg-indigo-600 text-white font-medium' 
-        : 'hover:bg-indigo-100 text-gray-700'
-    }`;
-  
-  // Display a loading spinner if we're fetching data
-  if (loading && isEditing && !startup) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-indigo-600"></div>
-        <p className="mt-4 text-indigo-600 font-medium">Loading startup data...</p>
-      </div>
-    );
-  }
+  // Navigation between form sections
+  const navigateToSection = (section: typeof activeSection) => {
+    setActiveSection(section);
+  };
+
+  // Categories for dropdown
+  const categories = [
+    'SaaS', 'Fintech', 'Healthtech', 'Edtech', 'E-commerce', 
+    'AI/ML', 'Blockchain', 'Cleantech', 'Hardware', 'Marketplaces',
+    'Consumer Apps', 'Enterprise Software', 'IoT', 'Gaming', 'Other'
+  ];
+
+  // Stages for dropdown
+  const stages = [
+    'Idea', 'MVP','Pre-seed', 'Seed', 'Series A', 'Series B', 
+    'Series C', 'Series D+', 'Profitable', 'Acquired', 'IPO'
+  ];
+
+  // Funding round stages
+  const fundingStages = [
+    'Pre-seed', 'Seed', 'Series A', 'Series B', 
+    'Series C', 'Series D', 'Series E+', 'Convertible Note', 
+    'Angel', 'Grant', 'Crowdfunding', 'Other'
+  ];
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6 md:p-8 transition-all duration-300 transform hover:shadow-xl">
-      <h2 className="text-3xl font-bold mb-6 text-indigo-700 border-b pb-4">
-        {isEditing ? 'Edit Startup Profile' : 'List Your Startup'}
-      </h2>
-      
-      {success && (
-        <div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-6 rounded shadow animate-fade-in">
-          <div className="flex items-center">
-            <svg className="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-            </svg>
-            <p className="font-medium">Startup {isEditing ? 'updated' : 'created'} successfully!</p>
-          </div>
-        </div>
-      )}
-      
-      {(formError || contextError) && (
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded shadow animate-fade-in">
-          <div className="flex items-center">
-            <svg className="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-            </svg>
-            <p className="font-medium">{formError || contextError}</p>
-          </div>
-        </div>
-      )}
-      
-      {/* Validation errors summary */}
-      {Object.keys(validationErrors).length > 0 && (
-        <div className="bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 p-4 mb-6 rounded shadow">
-          <div className="flex items-start">
-            <svg className="h-5 w-5 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zm-1 9a1 1 0 102 0V8a1 1 0 10-2 0v7z" clipRule="evenodd" />
-            </svg>
-            <div>
-              <p className="font-medium mb-2">Please correct the following issues:</p>
-              <ul className="list-disc pl-5 space-y-1 text-sm">
-                {Object.entries(validationErrors).slice(0, 3).map(([field, message]) => (
-                  <li key={field}>{message}</li>
-                ))}
-                {Object.keys(validationErrors).length > 3 && (
-                  <li>...and {Object.keys(validationErrors).length - 3} more issues</li>
-                )}
-              </ul>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Navigation Tabs */}
-      <div className="flex flex-wrap gap-2 mb-6 border-b pb-4">
-        <button 
-          type="button" 
-          onClick={() => setActiveSection('basic')} 
-          className={sectionClasses('basic')}
-        >
-          Basic Info
-        </button>
-        <button 
-          type="button" 
-          onClick={() => setActiveSection('location')} 
-          className={sectionClasses('location')}
-        >
-          Category & Location
-        </button>
-        <button 
-          type="button" 
-          onClick={() => setActiveSection('metrics')} 
-          className={sectionClasses('metrics')}
-        >
-          Funding & Metrics
-        </button>
-        <button 
-          type="button" 
-          onClick={() => setActiveSection('social')} 
-          className={sectionClasses('social')}
-        >
-          Social
-        </button>
-        <button 
-          type="button" 
-          onClick={() => setActiveSection('founders')} 
-          className={sectionClasses('founders')}
-        >
-          Founders
-        </button>
+    <form onSubmit={handleSubmit} className="space-y-8">
+      {/* Section navigation */}
+      <div className="flex flex-wrap gap-2 mb-6">
+        {['basic', 'location', 'metrics', 'social', 'founders', 'funding'].map((section) => (
+          <button
+            key={section}
+            type="button"
+            onClick={() => navigateToSection(section as typeof activeSection)}
+            className={`px-4 py-2 rounded-md ${
+              activeSection === section 
+                ? 'bg-indigo-600 text-white' 
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            } transition-colors duration-200`}
+          >
+            {section.charAt(0).toUpperCase() + section.slice(1)}
+          </button>
+        ))}
       </div>
-      
-      <form onSubmit={handleSubmit} className="space-y-8">
-        {/* Basic Information */}
-        <div className={`transition-opacity duration-300 ease-in-out ${activeSection === 'basic' ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
-          <div className="border-b border-gray-200 pb-6">
-            <h3 className="text-xl font-semibold mb-4 text-indigo-600">Basic Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="transition-all duration-300 transform hover:scale-105">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Startup Name*
-                </label>
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  required
-                  className={`w-full px-4 py-3 border ${validationErrors.name ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
-                  placeholder="Enter startup name"
-                />
-                {validationErrors.name && (
-                  <p className="mt-1 text-sm text-red-600">{validationErrors.name}</p>
-                )}
-              </div>
-              
-              <div className="transition-all duration-300 transform hover:scale-105">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Logo URL
-                </label>
-                <input
-                  type="url"
-                  name="logo"
-                  value={formData.logo}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-3 border ${validationErrors.logo ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
-                  placeholder="https://..."
-                />
-                {validationErrors.logo && (
-                  <p className="mt-1 text-sm text-red-600">{validationErrors.logo}</p>
-                )}
-              </div>
-              <div className="md:col-span-2 transition-all duration-300 transform hover:scale-105">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tagline / One-liner*
-                </label>
-                <input
-                  type="text"
-                  name="tagline"
-                  value={formData.tagline}
-                  onChange={handleChange}
-                  required
-                  maxLength={100}
-                  className={`w-full px-4 py-3 border ${validationErrors.tagline ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
-                  placeholder="Describe your startup in one sentence"
-                />
-              <div className="mt-1 text-xs text-right text-gray-500">
-                  {formData.tagline.length}/100 characters
-              </div>
-                {validationErrors.tagline && (
-                  <p className="mt-1 text-sm text-red-600">{validationErrors.tagline}</p>
-                )}
-              </div>
 
-              <div className="md:col-span-2 transition-all duration-300 transform hover:scale-105">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Description*
-                </label>
-                <textarea
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
-                  required
-                  rows={5}
-                  className={`w-full px-4 py-3 border ${validationErrors.description ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
-                  placeholder="Tell us about your startup's mission, vision, and what problem you're solving"
-                />
-                {validationErrors.description && (
-                  <p className="mt-1 text-sm text-red-600">{validationErrors.description}</p>
-                )}
-              </div>
-
-              <div className="transition-all duration-300 transform hover:scale-105">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Website
-                </label>
-                <input
-                  type="url"
-                  name="website"
-                  value={formData.website}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-3 border ${validationErrors.website ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
-                  placeholder="https://..."
-                />
-                {validationErrors.website && (
-                  <p className="mt-1 text-sm text-red-600">{validationErrors.website}</p>
-                )}
-              </div>
-
-              <div className="transition-all duration-300 transform hover:scale-105">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Founding Date
-                </label>
-                <input
-                  type="date"
-                  name="foundingDate"
-                  value={formData.foundingDate}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-3 border ${validationErrors.foundingDate ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
-                />
-                {validationErrors.foundingDate && (
-                  <p className="mt-1 text-sm text-red-600">{validationErrors.foundingDate}</p>
-                )}
-              </div>
-            </div>
-          </div>
+      {/* Display any API errors at the top */}
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-md mb-6">
+          <p className="text-red-600">{error}</p>
         </div>
-
-        {/* Category and Location */}
-        <div className={`transition-opacity duration-300 ease-in-out ${activeSection === 'location' ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
-          <div className="border-b border-gray-200 pb-6">   
-            <h3 className="text-xl font-semibold mb-4 text-indigo-600">Category & Location</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="transition-all duration-300 transform hover:scale-105">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Category*
-                </label>
-                <select
-                  name="category"
-                  value={formData.category}
-                  onChange={handleChange}
-                  required
-                  className={`w-full px-4 py-3 border ${validationErrors.category ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
-                >
-                  <option value="">Select category</option>
-                  {['Fintech', 'Healthtech', 'Edtech', 'Agritech', 'E-commerce', 'Clean Energy', 'Logistics', 'AI & ML', 'Other'].map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
-                  {validationErrors.category && (
-                    <p className="mt-1 text-sm text-red-600">{validationErrors.category}</p>
-                  )}
-              </div>
-  
+      )}
+      
+      {/* Basic Information Section */}
+      <div className={activeSection === 'basic' ? 'block' : 'hidden'}>
+        <div className="border-b border-gray-200 pb-6">
+          <h3 className="text-xl font-semibold mb-4 text-indigo-600">Basic Information</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="transition-all duration-300 transform hover:scale-105">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Sub-category
+                Startup Name*
+              </label>
+              <input
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                required
+                className={`w-full px-4 py-3 border ${validationErrors.name ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
+                placeholder="Enter startup name"
+              />
+              {validationErrors.name && (
+                <p className="mt-1 text-sm text-red-600">{validationErrors.name}</p>
+              )}
+            </div>
+            
+            <div className="transition-all duration-300 transform hover:scale-105">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Logo URL
+              </label>
+              <input
+                type="url"
+                name="logo"
+                value={formData.logo}
+                onChange={handleChange}
+                className={`w-full px-4 py-3 border ${validationErrors.logo ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
+                placeholder="https://..."
+              />
+              {validationErrors.logo && (
+                <p className="mt-1 text-sm text-red-600">{validationErrors.logo}</p>
+              )}
+            </div>
+
+            <div className="transition-all duration-300 transform hover:scale-105">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Tagline* <span className="text-xs text-gray-500">(max 100 chars)</span>
+              </label>
+              <input
+                type="text"
+                name="tagline"
+                value={formData.tagline}
+                onChange={handleChange}
+                required
+                maxLength={100}
+                className={`w-full px-4 py-3 border ${validationErrors.tagline ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
+                placeholder="One-line description of your startup"
+              />
+              {validationErrors.tagline && (
+                <p className="mt-1 text-sm text-red-600">{validationErrors.tagline}</p>
+              )}
+            </div>
+
+            <div className="transition-all duration-300 transform hover:scale-105">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Website
+              </label>
+              <input
+                type="url"
+                name="website"
+                value={formData.website}
+                onChange={handleChange}
+                className={`w-full px-4 py-3 border ${validationErrors.website ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
+                placeholder="https://..."
+              />
+              {validationErrors.website && (
+                <p className="mt-1 text-sm text-red-600">{validationErrors.website}</p>
+              )}
+            </div>
+
+            <div className="transition-all duration-300 transform hover:scale-105 md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Description*
+              </label>
+              <textarea
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                required
+                rows={4}
+                className={`w-full px-4 py-3 border ${validationErrors.description ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
+                placeholder="Describe your startup in detail"
+              />
+              {validationErrors.description && (
+                <p className="mt-1 text-sm text-red-600">{validationErrors.description}</p>
+              )}
+            </div>
+
+            <div className="transition-all duration-300 transform hover:scale-105">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Category*
+              </label>
+              <select
+                name="category"
+                value={formData.category}
+                onChange={handleChange}
+                required
+                className={`w-full px-4 py-3 border ${validationErrors.category ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
+              >
+                <option value="">Select Category</option>
+                {categories.map(category => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
+              </select>
+              {validationErrors.category && (
+                <p className="mt-1 text-sm text-red-600">{validationErrors.category}</p>
+              )}
+            </div>
+
+            <div className="transition-all duration-300 transform hover:scale-105">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Sub-Category
               </label>
               <input
                 type="text"
                 name="subCategory"
                 value={formData.subCategory}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 border ${validationErrors.subCategory ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
-                placeholder="e.g., Payment Processing, Telemedicine"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
+                placeholder="E.g., Marketing Automation, HR Tech"
               />
-              {validationErrors.subCategory && (
-                <p className="mt-1 text-sm text-red-600">{validationErrors.subCategory}</p>
-              )}
             </div>
-  
-            <div className="transition-all duration-300 transform hover:scale-105">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Country*
-              </label>
-              <select
-                name="country"
-                value={formData.country}
-                onChange={handleChange}
-                required
-                className={`w-full px-4 py-3 border ${validationErrors.country ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
-              >
-                <option value="">Select country</option>
-                {['Nigeria', 'Kenya', 'South Africa', 'Egypt', 'Ghana', 'Rwanda', 'Ethiopia', 'Senegal', 'Morocco', 'Tanzania', 'Uganda', 'Ivory Coast', 'Other'].map(country => (
-                  <option key={country} value={country}>{country}</option>
-                ))}
-              </select>
-              {validationErrors.country && (
-                <p className="mt-1 text-sm text-red-600">{validationErrors.country}</p>
-              )}
-            </div>
-  
-            <div className="transition-all duration-300 transform hover:scale-105">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                City
-              </label>
-              <input
-                type="text"
-                name="city"
-                value={formData.city}
-                onChange={handleChange}
-                className={`w-full px-4 py-3 border ${validationErrors.city ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
-                placeholder="Enter city name"
-              />
-              {validationErrors.city && (
-                <p className="mt-1 text-sm text-red-600">{validationErrors.city}</p>
-              )}
-            </div>
-            </div>
-          </div>
-        </div>
 
-        {/* Funding & Metrics */}
-        <div className={`transition-opacity duration-300 ease-in-out ${activeSection === 'metrics' ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
-        <div className="border-b border-gray-200 pb-6">
-          <h3 className="text-xl font-semibold mb-4 text-indigo-600">Funding & Metrics</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div className="transition-all duration-300 transform hover:scale-105">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Stage*
@@ -684,39 +569,106 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
                 required
                 className={`w-full px-4 py-3 border ${validationErrors.stage ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
               >
-                <option value="">Select stage</option>
-                  {['Idea', 'MVP', 'Pre-seed', 'Seed', 'Series A', 'Series B', 'Series C', 'Growth', 'Established'].map(stage => (
-                <option key={stage} value={stage}>{stage}</option>
+                <option value="">Select Stage</option>
+                {stages.map(stage => (
+                  <option key={stage} value={stage}>{stage}</option>
                 ))}
               </select>
-                {validationErrors.stage && (
-                    <p className="mt-1 text-sm text-red-600">{validationErrors.stage}</p>
-                )}
+              {validationErrors.stage && (
+                <p className="mt-1 text-sm text-red-600">{validationErrors.stage}</p>
+              )}
             </div>
-  
+
+            <div className="transition-all duration-300 transform hover:scale-105">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Founding Date
+              </label>
+              <input
+                type="date"
+                name="foundingDate"
+                value={formData.foundingDate}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
+              />
+            </div>
+
+            <div className="transition-all duration-300 transform hover:scale-105 md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Products/Services
+              </label>
+              <textarea
+                name="products"
+                value={formData.products}
+                onChange={handleChange}
+                rows={3}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
+                placeholder="Describe your products or services"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Location Section */}
+      <div className={activeSection === 'location' ? 'block' : 'hidden'}>
+        <div className="border-b border-gray-200 pb-6">
+          <h3 className="text-xl font-semibold mb-4 text-indigo-600">Location</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="transition-all duration-300 transform hover:scale-105">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Country*
+              </label>
+              <input
+                type="text"
+                name="country"
+                value={formData.country}
+                onChange={handleChange}
+                required
+                className={`w-full px-4 py-3 border ${validationErrors.country ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
+                placeholder="Country"
+              />
+              {validationErrors.country && (
+                <p className="mt-1 text-sm text-red-600">{validationErrors.country}</p>
+              )}
+            </div>
+
+            <div className="transition-all duration-300 transform hover:scale-105">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                City
+              </label>
+              <input
+                type="text"
+                name="city"
+                value={formData.city}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
+                placeholder="City"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Metrics Section */}
+      <div className={activeSection === 'metrics' ? 'block' : 'hidden'}>
+        <div className="border-b border-gray-200 pb-6">
+          <h3 className="text-xl font-semibold mb-4 text-indigo-600">Metrics</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="transition-all duration-300 transform hover:scale-105">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Total Funding (USD)
               </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                  <span className="text-gray-500">$</span>
-                </div>
-                <input
-                  type="number"
-                  name="metrics.fundingTotal"
-                  value={formData.metrics.fundingTotal}
-                  onChange={handleChange}
-                  min="0"
-                  className={`w-full pl-8 px-4 py-3 border ${validationErrors['metrics.fundingTotal'] ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
-                  placeholder="0"
-                />
-              </div>
-                {validationErrors['metrics.fundingTotal'] && (
-                  <p className="mt-1 text-sm text-red-600">{validationErrors['metrics.fundingTotal']}</p>
-                )}
+              <input
+                type="number"
+                name="metrics.fundingTotal"
+                value={formData.metrics.fundingTotal}
+                onChange={handleChange}
+                min="0"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
+                placeholder="0"
+              />
             </div>
-  
+
             <div className="transition-all duration-300 transform hover:scale-105">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Number of Employees
@@ -726,264 +678,364 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
                 name="metrics.employees"
                 value={formData.metrics.employees}
                 onChange={handleChange}
-                min="1"
-                className={`w-full px-4 py-3 border ${validationErrors['metrics.employees'] ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
-                placeholder="1"
+                min="0"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
+                placeholder="0"
               />
-                {validationErrors['metrics.employees'] && (
-                  <p className="mt-1 text-sm text-red-600">{validationErrors['metrics.employees']}</p>
-                )}
             </div>
-  
+            <div className="transition-all duration-300 transform hover:scale-105">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Annual Revenue Range
+                </label>
+                <select
+                  name="metrics.revenue"
+                  value={formData.metrics.revenue}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
+                >
+                    {revenueOptions.map(range => (
+                    <option key={range} value={range}>{range}</option>
+                  ))}
+                </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Social Profiles Section */}
+      <div className={activeSection === 'social' ? 'block' : 'hidden'}>
+        <div className="border-b border-gray-200 pb-6">
+          <h3 className="text-xl font-semibold mb-4 text-indigo-600">Social Profiles</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="transition-all duration-300 transform hover:scale-105">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Revenue Range
+                LinkedIn
               </label>
-              <select
-                name="metrics.revenue"
-      value={typeof formData.metrics.revenue === 'number' ? 
-        formatRevenueForDisplay(formData.metrics.revenue) : 
-        formData.metrics.revenue}
-      onChange={handleChange}
-                className={`w-full px-4 py-3 border ${validationErrors['metrics.revenue'] ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
-              >
-                <option value="Pre-revenue">Pre-revenue</option>
-                <option value="$1K-$10K">$1K-$10K</option>
-                <option value="$10K-$100K">$10K-$100K</option>
-                <option value="$100K-$1M">$100K-$1M</option>
-                <option value="$1M-$10M">$1M-$10M</option>
-                <option value="$10M+">$10M+</option>
-                <option value="Undisclosed">Undisclosed</option>
-              </select>
-              {validationErrors['metrics.revenue'] && (
-      <p className="mt-1 text-sm text-red-600">{validationErrors['metrics.revenue']}</p>
+              <input
+                type="url"
+                name="socialProfiles.linkedin"
+                value={formData.socialProfiles.linkedin}
+                onChange={handleChange}
+                className={`w-full px-4 py-3 border ${validationErrors['socialProfiles.linkedin'] ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
+                placeholder="https://linkedin.com/company/..."
+              />
+              {validationErrors['socialProfiles.linkedin'] && (
+                <p className="mt-1 text-sm text-red-600">{validationErrors['socialProfiles.linkedin']}</p>
+              )}
+            </div>
+
+            <div className="transition-all duration-300 transform hover:scale-105">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Twitter
+              </label>
+              <input
+                type="url"
+                name="socialProfiles.twitter"
+                value={formData.socialProfiles.twitter}
+                onChange={handleChange}
+                className={`w-full px-4 py-3 border ${validationErrors['socialProfiles.twitter'] ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
+                placeholder="https://twitter.com/..."
+              />
+              {validationErrors['socialProfiles.twitter'] && (
+                <p className="mt-1 text-sm text-red-600">{validationErrors['socialProfiles.twitter']}</p>
+              )}
+            </div>
+
+            <div className="transition-all duration-300 transform hover:scale-105">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Facebook
+              </label>
+              <input
+                type="url"
+                name="socialProfiles.facebook"
+                value={formData.socialProfiles.facebook}
+                onChange={handleChange}
+                className={`w-full px-4 py-3 border ${validationErrors['socialProfiles.facebook'] ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
+                placeholder="https://facebook.com/..."
+              />
+              {validationErrors['socialProfiles.facebook'] && (
+                <p className="mt-1 text-sm text-red-600">{validationErrors['socialProfiles.facebook']}</p>
+              )}
+            </div>
+
+            <div className="transition-all duration-300 transform hover:scale-105">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Instagram
+              </label>
+              <input
+                type="url"
+                name="socialProfiles.instagram"
+                value={formData.socialProfiles.instagram}
+                onChange={handleChange}
+                className={`w-full px-4 py-3 border ${validationErrors['socialProfiles.instagram'] ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
+                placeholder="https://instagram.com/..."
+              />
+              {validationErrors['socialProfiles.instagram'] && (
+                <p className="mt-1 text-sm text-red-600">{validationErrors['socialProfiles.instagram']}</p>
               )}
             </div>
           </div>
         </div>
-        </div>
+      </div>
 
-        {/* Social Profiles */}
-        <div className={`transition-opacity duration-300 ease-in-out ${activeSection === 'social' ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
-          <div className="border-b border-gray-200 pb-6">
-            <h3 className="text-xl font-semibold mb-4 text-indigo-600">Social Profiles</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="transition-all duration-300 transform hover:scale-105">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <span className="flex items-center">
-                    <svg className="w-5 h-5 mr-2 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
-                    </svg>
-                    LinkedIn
-                  </span>
-                </label>
-                <input
-                  type="url"
-                  name="socialProfiles.linkedin"
-                  value={formData.socialProfiles.linkedin}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-3 border ${validationErrors['socialProfiles.linkedin'] ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
-                  placeholder="https://linkedin.com/company/..."
-                />
-                    {validationErrors['socialProfiles.linkedin'] && (
-                      <p className="mt-1 text-sm text-red-600">{validationErrors['socialProfiles.linkedin']}</p>
-                    )}
+      {/* Founders Section */}
+      <div className={activeSection === 'founders' ? 'block' : 'hidden'}>
+        <div className="border-b border-gray-200 pb-6">
+          <h3 className="text-xl font-semibold mb-4 text-indigo-600">Founders</h3>
+          
+          {formData.founders.map((founder, index) => (
+            <div key={index} className="mb-8 p-6 bg-gray-50 rounded-lg shadow-sm">
+              <div className="flex justify-between items-center mb-4">
+                <h4 className="text-lg font-medium text-gray-800">Founder {index + 1}</h4>
+                {formData.founders.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeFounder(index)}
+                    className="text-red-500 hover:text-red-700 transition-colors duration-200"
+                  >
+                    Remove
+                  </button>
+                )}
               </div>
-  
-              <div className="transition-all duration-300 transform hover:scale-105">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <span className="flex items-center">
-                    <svg className="w-5 h-5 mr-2 text-blue-400" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723 10.054 10.054 0 01-3.127 1.184 4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/>
-                    </svg>
-                    Twitter
-                  </span>
-                </label>
-                <input
-                  type="url"
-                  name="socialProfiles.twitter"
-                  value={formData.socialProfiles.twitter}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-3 border ${validationErrors['socialProfiles.twitter'] ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
-                  placeholder="https://twitter.com/..."
-                />
-                  {validationErrors['socialProfiles.twitter'] && (
-                    <p className="mt-1 text-sm text-red-600">{validationErrors['socialProfiles.twitter']}</p>
-                  )}
-              </div>
-  
-              <div className="transition-all duration-300 transform hover:scale-105">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <span className="flex items-center">
-                    <svg className="w-5 h-5 mr-2 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M22.675 0h-21.35c-.732 0-1.325.593-1.325 1.325v21.351c0 .731.593 1.324 1.325 1.324h11.495v-9.294h-3.128v-3.622h3.128v-2.671c0-3.1 1.893-4.788 4.659-4.788 1.325 0 2.463.099 2.795.143v3.24l-1.918.001c-1.504 0-1.795.715-1.795 1.763v2.313h3.587l-.467 3.622h-3.12v9.293h6.116c.73 0 1.323-.593 1.323-1.325v-21.35c0-.732-.593-1.325-1.325-1.325z"/>
-                    </svg>
-                    Facebook
-                  </span>
-                </label>
-                <input
-                  type="url"
-                  name="socialProfiles.facebook"
-                  value={formData.socialProfiles.facebook}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-3 border ${validationErrors['socialProfiles.facebook'] ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
-                  placeholder="https://facebook.com/..."
-                />
-                  {validationErrors['socialProfiles.facebook'] && (
-                    <p className="mt-1 text-sm text-red-600">{validationErrors['socialProfiles.facebook']}</p>
-                  )}
-              </div>
-  
-              <div className="transition-all duration-300 transform hover:scale-105">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <span className="flex items-center">
-                    <svg className="w-5 h-5 mr-2 text-pink-500" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 0C8.74 0 8.333.015 7.053.072 5.775.132 4.905.333 4.14.63c-.789.306-1.459.717-2.126 1.384S.935 3.35.63 4.14C.333 4.905.131 5.775.072 7.053.012 8.333 0 8.74 0 12s.015 3.667.072 4.947c.06 1.277.261 2.148.558 2.913.306.788.717 1.459 1.384 2.126.667.666 1.336 1.079 2.126 1.384.766.296 1.636.499 2.913.558C8.333 23.988 8.74 24 12 24s3.667-.015 4.947-.072c1.277-.06 2.148-.262 2.913-.558.788-.306 1.459-.718 2.126-1.384.666-.667 1.079-1.335 1.384-2.126.296-.765.499-1.636.558-2.913.06-1.28.072-1.687.072-4.947s-.015-3.667-.072-4.947c-.06-1.277-.262-2.149-.558-2.913-.306-.789-.718-1.459-1.384-2.126C21.319 1.347 20.651.935 19.86.63c-.765-.297-1.636-.499-2.913-.558C15.667.012 15.26 0 12 0zm0 2.16c3.203 0 3.585.016 4.85.071 1.17.055 1.805.249 2.227.415.562.217.96.477 1.382.896.419.42.679.819.896 1.381.164.422.36 1.057.413 2.227.057 1.266.07 1.646.07 4.85s-.015 3.585-.074 4.85c-.061 1.17-.256 1.805-.421 2.227-.224.562-.479.96-.899 1.382-.419.419-.824.679-1.38.896-.42.164-1.065.36-2.235.413-1.274.057-1.649.07-4.859.07-3.211 0-3.586-.015-4.859-.074-1.171-.061-1.816-.256-2.236-.421-.569-.224-.96-.479-1.379-.899-.421-.419-.69-.824-.9-1.38-.165-.42-.359-1.065-.42-2.235-.045-1.26-.061-1.649-.061-4.844 0-3.196.016-3.586.061-4.861.061-1.17.255-1.814.42-2.234.21-.57.479-.96.9-1.381.419-.419.81-.689 1.379-.898.42-.166 1.051-.361 2.221-.421 1.275-.045 1.65-.06 4.859-.06l.045.03zm0 3.678c-3.405 0-6.162 2.76-6.162 6.162 0 3.405 2.76 6.162 6.162 6.162 3.405 0 6.162-2.76 6.162-6.162 0-3.405-2.76-6.162-6.162-6.162zM12 16c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm7.846-10.405c0 .795-.646 1.44-1.44 1.44-.795 0-1.44-.646-1.44-1.44 0-.794.646-1.439 1.44-1.439.793-.001 1.44.645 1.44 1.439z"/>
-                    </svg>
-                    Instagram
-                  </span>
-                </label>
-                <input
-                  type="url"
-                  name="socialProfiles.instagram"
-                  value={formData.socialProfiles.instagram}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-3 border ${validationErrors['socialProfiles.instagram'] ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
-                  placeholder="https://instagram.com/..."
-                />
-                  {validationErrors['socialProfiles.instagram'] && (
-                    <p className="mt-1 text-sm text-red-600">{validationErrors['socialProfiles.instagram']}</p>
-                  )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Founders */}
-        <div className={`transition-opacity duration-300 ease-in-out ${activeSection === 'founders' ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
-          <div>
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-semibold text-indigo-600">Founders</h3>
-              <button
-                type="button"
-                onClick={addFounder}
-                className="flex items-center text-sm bg-indigo-50 text-indigo-600 px-4 py-2 rounded-md hover:bg-indigo-100 transition-colors duration-300 transform hover:scale-105"
-              >
-                <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
-                </svg>
-                Add Founder
-              </button>
-            </div>
-
-            {formData.founders.map((founder, index) => (
-              <div 
-                key={index} 
-                className="mb-6 p-5 border border-gray-200 rounded-lg shadow-sm transition-all duration-300 transform hover:shadow-md hover:border-indigo-200"
-              >
-                <div className="flex justify-between mb-4">
-                  <h4 className="font-medium text-lg text-indigo-700">Founder {index + 1}</h4>
-                  {formData.founders.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeFounder(index)}
-                      className="text-sm text-red-500 hover:text-red-700 transition-colors duration-300 flex items-center"
-                    >
-                      <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                      </svg>
-                      Remove
-                    </button>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="transition-all duration-300 transform hover:scale-105">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Full Name*
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={founder.name}
+                    onChange={(e) => handleFounderChange(index, e)}
+                    required
+                    className={`w-full px-4 py-3 border ${validationErrors[`founders[${index}].name`] ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
+                    placeholder="John Doe"
+                  />
+                  {validationErrors[`founders[${index}].name`] && (
+                    <p className="mt-1 text-sm text-red-600">{validationErrors[`founders[${index}].name`]}</p>
                   )}
                 </div>
-    
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="transition-all duration-300 transform hover:scale-105">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Name
-                    </label>
-                    <input
-                      type="text"
-                      name="name"
-                      value={founder.name}
-                      onChange={(e) => handleFounderChange(index, e)}
-                      className={`w-full px-4 py-3 border ${validationErrors[`founders[${index}].name`] ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
-                    />
-                      {validationErrors[`founders[${index}].name`] && (
-                        <p className="mt-1 text-sm text-red-600">{validationErrors[`founders[${index}].name`]}</p>
-                      )}
-                  </div>
-      
-                  <div className="transition-all duration-300 transform hover:scale-105">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Role
-                    </label>
-                    <input
-                      type="text"
-                      name="role"
-                      value={founder.role}
-                      onChange={(e) => handleFounderChange(index, e)}
-                      className={`w-full px-4 py-3 border ${validationErrors[`founders[${index}].role`] ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
-                      placeholder="CEO, CTO, etc."
-                    /> 
-                      {validationErrors[`founders[${index}].role`] && (
-                        <p className="mt-1 text-sm text-red-600">{validationErrors[`founders[${index}].role`]}</p>
-                      )}
-                  </div>
 
-                  <div className="transition-all duration-300 transform hover:scale-105">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      <span className="flex items-center">
-                        <svg className="w-5 h-5 mr-2 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
-                        </svg>
-                        LinkedIn Profile
-                      </span>
-                    </label>
-                    <input
-                      type="url"
-                      name="linkedin"
-                      value={founder.linkedin}
-                      onChange={(e) => handleFounderChange(index, e)}
-                      className={`w-full px-4 py-3 border ${validationErrors[`founders[${index}].linkedin`] ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
-                      placeholder="https://linkedin.com/in/..."
-                    />
-                      {validationErrors[`founders[${index}].linkedin`] && (
-                        <p className="mt-1 text-sm text-red-600">{validationErrors[`founders[${index}].linkedin`]}</p>
-                      )}
-                  </div>
+                <div className="transition-all duration-300 transform hover:scale-105">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Role
+                  </label>
+                  <input
+                    type="text"
+                    name="role"
+                    value={founder.role}
+                    onChange={(e) => handleFounderChange(index, e)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
+                    placeholder="CEO, CTO, etc."
+                  />
+                </div>
+
+                <div className="transition-all duration-300 transform hover:scale-105">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    LinkedIn Profile
+                  </label>
+                  <input
+                    type="url"
+                    name="linkedin"
+                    value={founder.linkedin}
+                    onChange={(e) => handleFounderChange(index, e)}
+                    className={`w-full px-4 py-3 border ${validationErrors[`founders[${index}].linkedin`] ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
+                    placeholder="https://linkedin.com/in/..."
+                  />
+                  {validationErrors[`founders[${index}].linkedin`] && (
+                    <p className="mt-1 text-sm text-red-600">{validationErrors[`founders[${index}].linkedin`]}</p>
+                  )}
+                </div>
+
+                <div className="transition-all duration-300 transform hover:scale-105 md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Bio
+                  </label>
+                  <textarea
+                    name="bio"
+                    value={founder.bio}
+                    onChange={(e) => handleFounderChange(index, e)}
+                    rows={3}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
+                    placeholder="Brief bio of the founder"
+                  />
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-        
-        <div className="flex justify-between pt-6">
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="bg-gray-200 text-gray-800 px-6 py-3 rounded-lg hover:bg-gray-300 transition-all duration-300 transform hover:scale-105 shadow-md"
-          >
-            Cancel
-          </button>
+            </div>
+          ))}
           
           <button
-            type="submit"
-            disabled={isSubmitting || loading}
-            className="bg-indigo-600 text-white px-8 py-3 rounded-lg hover:bg-indigo-700 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 shadow-md hover:shadow-lg flex items-center"
+            type="button"
+            onClick={addFounder}
+            className="mt-4 flex items-center text-indigo-600 hover:text-indigo-800 transition-colors duration-200"
           >
-            {(isSubmitting || loading) ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
-                <span>{isEditing ? 'Updating...' : 'Creating...'}</span>
-              </>
-            ) : (
-              isEditing ? 'Update Startup' : 'List Startup'
-            )}
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
+            </svg>
+            Add Another Founder
           </button>
         </div>
-      </form>
-    </div>
+      </div>
+
+      {/* Funding Rounds Section */}
+      <div className={activeSection === 'funding' ? 'block' : 'hidden'}>
+        <div className="border-b border-gray-200 pb-6">
+          <h3 className="text-xl font-semibold mb-4 text-indigo-600">Funding Rounds</h3>
+          
+          {formData.fundingRounds && formData.fundingRounds.map((round, index) => (
+            <div key={index} className="mb-8 p-6 bg-gray-50 rounded-lg shadow-sm">
+              <div className="flex justify-between items-center mb-4">
+                <h4 className="text-lg font-medium text-gray-800">Funding Round {index + 1}</h4>
+                <button
+                  type="button"
+                  onClick={() => removeFundingRound(index)}
+                  className="text-red-500 hover:text-red-700 transition-colors duration-200"
+                >
+                  Remove
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="transition-all duration-300 transform hover:scale-105">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Stage*
+                  </label>
+                  <select
+                    name="stage"
+                    value={round.stage}
+                    onChange={(e) => handleFundingRoundChange(index, e)}
+                    required
+                    className={`w-full px-4 py-3 border ${validationErrors[`fundingRounds[${index}].stage`] ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
+                  >
+                    <option value="">Select Stage</option>
+                    {fundingStages.map(stage => (
+                      <option key={stage} value={stage}>{stage}</option>
+                    ))}
+                  </select>
+                  {validationErrors[`fundingRounds[${index}].stage`] && (
+                    <p className="mt-1 text-sm text-red-600">{validationErrors[`fundingRounds[${index}].stage`]}</p>
+                  )}
+                </div>
+
+                <div className="transition-all duration-300 transform hover:scale-105">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Date
+                  </label>
+                  <input
+                    type="date"
+                    name="date"
+                    value={round.date}
+                    onChange={(e) => handleFundingRoundChange(index, e)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
+                  />
+                </div>
+
+                <div className="transition-all duration-300 transform hover:scale-105">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Amount (USD)
+                  </label>
+                  <input
+                    type="number"
+                    name="amount"
+                    value={round.amount}
+                    onChange={(e) => handleFundingRoundChange(index, e)}
+                    min="0"
+                    className={`w-full px-4 py-3 border ${validationErrors[`fundingRounds[${index}].amount`] ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
+                    placeholder="0"
+                  />
+                  {validationErrors[`fundingRounds[${index}].amount`] && (
+                    <p className="mt-1 text-sm text-red-600">{validationErrors[`fundingRounds[${index}].amount`]}</p>
+                  )}
+                </div>
+
+                <div className="transition-all duration-300 transform hover:scale-105">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Valuation (USD)
+                  </label>
+                  <input
+                    type="number"
+                    name="valuation"
+                    value={round.valuation || ''}
+                    onChange={(e) => handleFundingRoundChange(index, e)}
+                    min="0"
+                    className={`w-full px-4 py-3 border ${validationErrors[`fundingRounds[${index}].valuation`] ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
+                    placeholder="0"
+                  />
+                  {validationErrors[`fundingRounds[${index}].valuation`] && (
+                    <p className="mt-1 text-sm text-red-600">{validationErrors[`fundingRounds[${index}].valuation`]}</p>
+                  )}
+                </div>
+
+                <div className="transition-all duration-300 transform hover:scale-105 md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Investors (comma separated)
+                  </label>
+                  <input
+                    type="text"
+                    name="investors"
+                    value={round.investors?.join(', ') || ''}
+                    onChange={(e) => handleInvestorsChange(index, e)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
+                    placeholder="Investor A, Investor B, Investor C"
+                  />
+                </div>
+
+                <div className="transition-all duration-300 transform hover:scale-105 md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Notes
+                  </label>
+                  <textarea
+                    name="notes"
+                    value={round.notes || ''}
+                    onChange={(e) => handleFundingRoundChange(index, e)}
+                    rows={3}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
+                    placeholder="Additional information about this funding round"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+          
+          <button
+            type="button"
+            onClick={addFundingRound}
+            className="mt-4 flex items-center text-indigo-600 hover:text-indigo-800 transition-colors duration-200"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
+            </svg>
+            Add Funding Round
+          </button>
+        </div>
+      </div>
+      
+      <div className="flex justify-between pt-6">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="bg-gray-200 text-gray-800 px-6 py-3 rounded-lg hover:bg-gray-300 transition-all duration-300 transform hover:scale-105 shadow-md"
+        >
+          Cancel
+        </button>
+        
+        <button
+          type="submit"
+          disabled={isSubmitting || loading}
+          className="bg-indigo-600 text-white px-8 py-3 rounded-lg hover:bg-indigo-700 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 shadow-md hover:shadow-lg flex items-center"
+        >
+          {(isSubmitting || loading) ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+              <span>{isEditing ? 'Updating...' : 'Creating...'}</span>
+            </>
+          ) : (
+            isEditing ? 'Update Startup' : 'List Startup'
+          )}
+        </button>
+      </div>
+    </form>
   );
 };
 
