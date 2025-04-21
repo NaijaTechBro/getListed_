@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import StartupCard from '../../components/startup/StartupCard';
+import Navbar from '../../components/common/Navbar';
 import { StartupFilter } from '../../types';
 import { useStartup } from '../../context/StartupContext';
 
@@ -122,6 +123,8 @@ const StartupDirectory: React.FC = () => {
   const totalPages = Math.ceil(count / ITEMS_PER_PAGE);
 
   return (
+    <>
+    <Navbar />
     <div className="bg-gray-50 min-h-screen py-12">
       <div className="container mx-auto px-4">
         <h1 className="text-3xl font-bold mb-8">African Startup Directory</h1>
@@ -357,6 +360,7 @@ const StartupDirectory: React.FC = () => {
         )}
       </div>
     </div>
+    </>
   );
 };
 
