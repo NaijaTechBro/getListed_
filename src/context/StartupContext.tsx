@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode, useCallback } from 'react';
 import api from '../services/api';
 import { useAuth } from './AuthContext';
-import { Startup } from '../types';
+import { Startup, StartupFilter } from '../types';
 
 // Define startups state interface
 interface StartupsState {
@@ -9,11 +9,16 @@ interface StartupsState {
   startup: Startup | null;
   loading: boolean;
   error: string | null;
+  pagination: {
+    next?: { page: number; limit: number };
+    prev?: { page: number; limit: number };
+  } | null;
+  count: number;
 }
 
 // Define context interface
 interface StartupContextType extends StartupsState {
-  getStartups: (query?: string) => Promise<void>;
+  getStartups: (filter?: StartupFilter, page?: number, limit?: number) => Promise<void>;
   getStartup: (id: string) => Promise<void>;
   createStartup: (startupData: Partial<Startup>) => Promise<void>;
   updateStartup: (id: string, startupData: Partial<Startup>) => Promise<void>;
@@ -37,7 +42,9 @@ export const StartupProvider: React.FC<StartupProviderProps> = ({ children }) =>
     startups: [],
     startup: null,
     loading: false,
-    error: null
+    error: null,
+    pagination: null,
+    count: 0
   });
 
   // Load startups on mount if authenticated
@@ -47,17 +54,52 @@ export const StartupProvider: React.FC<StartupProviderProps> = ({ children }) =>
     }
   }, [isAuthenticated]);
 
-  // // Get all startups
-  const getStartups = async (query: string = '') => {
+  // Build query string from filter parameters
+  const buildQueryString = (filter?: StartupFilter, page?: number, limit?: number): string => {
+    const params = new URLSearchParams();
+    
+    if (filter) {
+      if (filter.category) params.append('category', filter.category);
+      if (filter.country) params.append('country', filter.country);
+      if (filter.stage) params.append('stage', filter.stage);
+      if (filter.searchTerm) params.append('name[$regex]', filter.searchTerm);
+      
+      if (filter.fundingRange) {
+        if (filter.fundingRange.min !== undefined) 
+          params.append('metrics.fundingTotal[gte]', filter.fundingRange.min.toString());
+        if (filter.fundingRange.max !== undefined) 
+          params.append('metrics.fundingTotal[lte]', filter.fundingRange.max.toString());
+      }
+      
+      if (filter.employeeCount) {
+        if (filter.employeeCount.min !== undefined) 
+          params.append('metrics.employees[gte]', filter.employeeCount.min.toString());
+        if (filter.employeeCount.max !== undefined) 
+          params.append('metrics.employees[lte]', filter.employeeCount.max.toString());
+      }
+    }
+    
+    if (page) params.append('page', page.toString());
+    if (limit) params.append('limit', limit.toString());
+    
+    return params.toString();
+  };
+
+  // Get all startups with optional filtering
+  const getStartups = useCallback(async (filter?: StartupFilter, page?: number, limit?: number) => {
     try {
       setStartupsState(prev => ({ ...prev, loading: true }));
       
-      const url = query ? `/startups?${query}` : '/startups';
+      const queryString = buildQueryString(filter, page, limit);
+      const url = `/startups/getstartups${queryString ? `?${queryString}` : ''}`;
+      
       const response = await api.get(url);
       
       setStartupsState(prev => ({
         ...prev,
         startups: response.data.data,
+        pagination: response.data.pagination || null,
+        count: response.data.count || 0,
         loading: false,
         error: null
       }));
@@ -71,14 +113,14 @@ export const StartupProvider: React.FC<StartupProviderProps> = ({ children }) =>
       }));
       throw err;
     }
-  };
+  }, []);
 
   // Get single startup
-  const getStartup = async (id: string) => {
+  const getStartup = useCallback(async (id: string) => {
     try {
       setStartupsState(prev => ({ ...prev, loading: true }));
       
-      const response = await api.get(`/startups/${id}`);
+      const response = await api.get(`/startups/getstartup/${id}`);
       
       setStartupsState(prev => ({
         ...prev,
@@ -96,14 +138,14 @@ export const StartupProvider: React.FC<StartupProviderProps> = ({ children }) =>
       }));
       throw err;
     }
-  };
+  }, []);
 
   // Create new startup
-  const createStartup = async (startupData: Partial<Startup>) => {
+  const createStartup = useCallback (async (startupData: Partial<Startup>) => {
     try {
       setStartupsState(prev => ({ ...prev, loading: true }));
       
-      const response = await api.post('/startups', startupData);
+      const response = await api.post('/startups/create', startupData);
       
       setStartupsState(prev => ({
         ...prev,
@@ -122,14 +164,14 @@ export const StartupProvider: React.FC<StartupProviderProps> = ({ children }) =>
       }));
       throw err;
     }
-  };
+  },[]);
 
   // Update startup
-  const updateStartup = async (id: string, startupData: Partial<Startup>) => {
+  const updateStartup = useCallback(async (id: string, startupData: Partial<Startup>) => {
     try {
       setStartupsState(prev => ({ ...prev, loading: true }));
       
-      const response = await api.put(`/startups/${id}`, startupData);
+      const response = await api.put(`/startups/updatestartup/${id}`, startupData);
       
       setStartupsState(prev => ({
         ...prev,
@@ -150,14 +192,14 @@ export const StartupProvider: React.FC<StartupProviderProps> = ({ children }) =>
       }));
       throw err;
     }
-  };
+  },[]);
 
   // Delete startup
-  const deleteStartup = async (id: string) => {
+  const deleteStartup = useCallback(async (id: string) => {
     try {
       setStartupsState(prev => ({ ...prev, loading: true }));
       
-      await api.delete(`/startups/${id}`);
+      await api.delete(`/startups/deletestartup/${id}`);
       
       setStartupsState(prev => ({
         ...prev,
@@ -174,7 +216,7 @@ export const StartupProvider: React.FC<StartupProviderProps> = ({ children }) =>
       }));
       throw err;
     }
-  };
+  },[]);
 
   // Clear error
   const clearStartupError = useCallback(() => {

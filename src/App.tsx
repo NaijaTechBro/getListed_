@@ -37,6 +37,7 @@ import CareersPage from './components/company/CareerPage';
 import ContactUsPage from './components/company/ContactPage';
 import PrivacyPage from './components/company/PrivacyPage';
 import TermsPage from './components/company/TermsPage';
+import StartupProfile from './pages/Startup/StartupProfile';
 
 const App: React.FC = () => {
   return (
@@ -56,6 +57,7 @@ const App: React.FC = () => {
 
             {/* Public Route */}
             <Route path="/directory" element={<StartupDirectory />} />
+            <Route path="/startup-profile/:id" element={<StartupProfile />} />
 
 
             {/* CompanyPage Route */}

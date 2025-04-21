@@ -125,6 +125,9 @@ export interface Startup {
     country?: string;
     stage?: string;
     searchTerm?: string;
+    featured?: boolean;
+    limit?: number;
+    createdBy?: string; // Add this field to support filtering by creator
     fundingRange?: {
       min?: number;
       max?: number;

@@ -1,4 +1,3 @@
-// client/src/components/startup/StartupCard.tsx
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Startup } from '../../types';
@@ -28,7 +27,7 @@ const StartupCard: React.FC<StartupCardProps> = ({ startup }) => {
 
   return (
     <Link 
-      to={`/startup/${_id}`}
+      to={`/startup-profile/${_id}`}
       className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col h-full"
     >
       <div className="p-6 flex flex-col h-full">

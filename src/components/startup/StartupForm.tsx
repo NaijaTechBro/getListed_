@@ -1,4 +1,3 @@
-// client/src/components/startup/StartupForm.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useStartup } from '../../context/StartupContext';
@@ -17,11 +16,12 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
     error: contextError, 
     getStartup, 
     createStartup, 
-    updateStartup 
+    updateStartup,
+    clearStartupError 
   } = useStartup();
   
   // Define initial state with proper typing based on the Startup interface
-  const initialState: Omit<Startup, '_id' | 'createdBy' | 'isVerified' | 'createdAt' | 'updatedAt' | 'metrics.connections' | 'metrics.views'> = {
+  const initialState: Omit<Startup, '_id' | 'createdBy' | 'isVerified' | 'createdAt' | 'updatedAt'> = {
     name: '',
     logo: '',
     tagline: '',
@@ -51,12 +51,27 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
 
   // Use a typed form state that matches what we expect for API operations
   const [formData, setFormData] = useState<Omit<Startup, '_id' | 'createdBy' | 'isVerified' | 'createdAt' | 'updatedAt'>>(initialState);
-  const [error, setError] = useState<string>('');
+  const [formError, setFormError] = useState<string>('');
   const [success, setSuccess] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [activeSection, setActiveSection] = useState<string>('basic');
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+
+  // Clear context error when component unmounts or when fields change
+  useEffect(() => {
+    return () => {
+      clearStartupError();
+    };
+  }, [clearStartupError]);
 
   useEffect(() => {
+    if (contextError) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [contextError]);
+
+  useEffect(() => {
+    // Only fetch startup data if we're in edit mode and have an ID
     if (isEditing && id) {
       fetchStartupData(id);
     }
@@ -65,22 +80,27 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
   useEffect(() => {
     // Update form data when startup data is loaded from context
     if (startup && isEditing) {
-      // Format date for input field
-      const formattedStartup = {...startup};
-      if (formattedStartup.foundingDate) {
-        const date = new Date(formattedStartup.foundingDate);
-        formattedStartup.foundingDate = date.toISOString().split('T')[0];
+      try {
+        // Format date for input field
+        const formattedStartup = {...startup};
+        if (formattedStartup.foundingDate) {
+          const date = new Date(formattedStartup.foundingDate);
+          formattedStartup.foundingDate = date.toISOString().split('T')[0];
+        }
+        
+        // Convert metrics.revenue from string to number if needed
+        if (typeof formattedStartup.metrics.revenue === 'string') {
+          formattedStartup.metrics = {
+            ...formattedStartup.metrics,
+            revenue: parseRevenueToNumber(formattedStartup.metrics.revenue as unknown as string)
+          };
+        }
+        
+        setFormData(formattedStartup);
+      } catch (err) {
+        console.error('Error processing startup data:', err);
+        setFormError('Could not process startup data correctly.');
       }
-      
-      // Convert metrics.revenue from string to number if needed
-      if (typeof formattedStartup.metrics.revenue === 'string') {
-        formattedStartup.metrics = {
-          ...formattedStartup.metrics,
-          revenue: parseRevenueToNumber(formattedStartup.metrics.revenue as unknown as string)
-        };
-      }
-      
-      setFormData(formattedStartup);
     }
   }, [startup, isEditing]);
 
@@ -122,16 +142,70 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
 
   const fetchStartupData = async (startupId: string) => {
     try {
+      // Clear any existing errors before fetching
+      setFormError('');
       await getStartup(startupId);
     } catch (error) {
       console.error('Error fetching startup:', error);
-      setError('Failed to load startup data.');
+      setFormError('Failed to load startup data. Please try again later.');
+    }
+  };
+
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    
+    // Basic validation rules
+    if (!formData.name.trim()) errors.name = 'Startup name is required';
+    if (!formData.tagline.trim()) errors.tagline = 'Tagline is required';
+    if (!formData.description.trim()) errors.description = 'Description is required';
+    if (!formData.category) errors.category = 'Category is required';
+    if (!formData.country) errors.country = 'Country is required';
+    if (!formData.stage) errors.stage = 'Stage is required';
+    
+    // Website validation if provided
+    if (formData.website && !isValidUrl(formData.website)) {
+      errors.website = 'Please enter a valid URL';
+    }
+    
+    // Validate social profiles if provided
+    Object.entries(formData.socialProfiles).forEach(([key, value]) => {
+      if (value && !isValidUrl(value)) {
+        errors[`socialProfiles.${key}`] = 'Please enter a valid URL';
+      }
+    });
+    
+    // Validate founders
+    formData.founders.forEach((founder, index) => {
+      if (founder.linkedin && !isValidUrl(founder.linkedin)) {
+        errors[`founders[${index}].linkedin`] = 'Please enter a valid LinkedIn URL';
+      }
+    });
+    
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+  
+  const isValidUrl = (url: string): boolean => {
+    try {
+      new URL(url);
+      return true;
+    } catch {
+      return false;
     }
   };
 
   // Fixed handleChange function to properly handle nested properties
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    
+    // Clear validation error for this field when changed
+    if (validationErrors[name]) {
+      setValidationErrors(prev => {
+        const updated = {...prev};
+        delete updated[name];
+        return updated;
+      });
+    }
     
     // Handle nested properties
     if (name.includes('.')) {
@@ -163,6 +237,17 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
 
   const handleFounderChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+    
+    // Clear validation error for this field when changed
+    const fieldName = `founders[${index}].${name}`;
+    if (validationErrors[fieldName]) {
+      setValidationErrors(prev => {
+        const updated = {...prev};
+        delete updated[fieldName];
+        return updated;
+      });
+    }
+    
     const updatedFounders = [...formData.founders];
     updatedFounders[index] = { ...updatedFounders[index], [name]: value };
     
@@ -191,7 +276,36 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    
+    // Reset errors
+    setFormError('');
+    clearStartupError();
+    
+    // Validate form
+    if (!validateForm()) {
+      // Find which section has errors and switch to it
+      const errorFields = Object.keys(validationErrors);
+      if (errorFields.length > 0) {
+        // Determine which section to show based on first error
+        const firstError = errorFields[0];
+        
+        if (firstError.includes('founders')) {
+          setActiveSection('founders');
+        } else if (firstError.includes('socialProfiles')) {
+          setActiveSection('social');
+        } else if (firstError.includes('metrics')) {
+          setActiveSection('metrics'); 
+        } else if (firstError === 'category' || firstError === 'country' || firstError === 'city') {
+          setActiveSection('location');
+        } else {
+          setActiveSection('basic');
+        }
+      }
+      
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    
     setIsSubmitting(true);
     
     try {
@@ -207,6 +321,7 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
         views: submissionData.metrics.views || 0
       };
       
+      // Make API call based on whether we're creating or updating
       if (isEditing && id) {
         await updateStartup(id, submissionData);
       } else {
@@ -222,9 +337,25 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
       setTimeout(() => {
         navigate(isEditing ? `/startup/${id}` : '/dashboard');
       }, 2000);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving startup:', error);
-      setError('Failed to save startup. Please try again.');
+      
+      // Handle different types of errors
+      if (error.response?.data?.errors) {
+        // Handle validation errors from API
+        const apiErrors = error.response.data.errors;
+        const formattedErrors: Record<string, string> = {};
+        
+        Object.entries(apiErrors).forEach(([field, message]) => {
+          formattedErrors[field] = message as string;
+        });
+        
+        setValidationErrors(formattedErrors);
+      } else {
+        // General error message
+        setFormError('Failed to save startup. Please check your connection and try again.');
+      }
+      
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setIsSubmitting(false);
@@ -237,8 +368,9 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
         ? 'bg-indigo-600 text-white font-medium' 
         : 'hover:bg-indigo-100 text-gray-700'
     }`;
-
-  if (loading && isEditing) {
+  
+  // Display a loading spinner if we're fetching data
+  if (loading && isEditing && !startup) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-indigo-600"></div>
@@ -264,13 +396,35 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
         </div>
       )}
       
-      {(error || contextError) && (
+      {(formError || contextError) && (
         <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded shadow animate-fade-in">
           <div className="flex items-center">
             <svg className="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
             </svg>
-            <p className="font-medium">{error || contextError}</p>
+            <p className="font-medium">{formError || contextError}</p>
+          </div>
+        </div>
+      )}
+      
+      {/* Validation errors summary */}
+      {Object.keys(validationErrors).length > 0 && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 p-4 mb-6 rounded shadow">
+          <div className="flex items-start">
+            <svg className="h-5 w-5 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zm-1 9a1 1 0 102 0V8a1 1 0 10-2 0v7z" clipRule="evenodd" />
+            </svg>
+            <div>
+              <p className="font-medium mb-2">Please correct the following issues:</p>
+              <ul className="list-disc pl-5 space-y-1 text-sm">
+                {Object.entries(validationErrors).slice(0, 3).map(([field, message]) => (
+                  <li key={field}>{message}</li>
+                ))}
+                {Object.keys(validationErrors).length > 3 && (
+                  <li>...and {Object.keys(validationErrors).length - 3} more issues</li>
+                )}
+              </ul>
+            </div>
           </div>
         </div>
       )}
@@ -330,9 +484,12 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
                   value={formData.name}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
+                  className={`w-full px-4 py-3 border ${validationErrors.name ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
                   placeholder="Enter startup name"
                 />
+                {validationErrors.name && (
+                  <p className="mt-1 text-sm text-red-600">{validationErrors.name}</p>
+                )}
               </div>
               
               <div className="transition-all duration-300 transform hover:scale-105">
@@ -344,11 +501,13 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
                   name="logo"
                   value={formData.logo}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
+                  className={`w-full px-4 py-3 border ${validationErrors.logo ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
                   placeholder="https://..."
                 />
+                {validationErrors.logo && (
+                  <p className="mt-1 text-sm text-red-600">{validationErrors.logo}</p>
+                )}
               </div>
-              
               <div className="md:col-span-2 transition-all duration-300 transform hover:scale-105">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Tagline / One-liner*
@@ -360,14 +519,17 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
                   onChange={handleChange}
                   required
                   maxLength={100}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
+                  className={`w-full px-4 py-3 border ${validationErrors.tagline ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
                   placeholder="Describe your startup in one sentence"
                 />
-                <div className="mt-1 text-xs text-right text-gray-500">
+              <div className="mt-1 text-xs text-right text-gray-500">
                   {formData.tagline.length}/100 characters
-                </div>
               </div>
-              
+                {validationErrors.tagline && (
+                  <p className="mt-1 text-sm text-red-600">{validationErrors.tagline}</p>
+                )}
+              </div>
+
               <div className="md:col-span-2 transition-all duration-300 transform hover:scale-105">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Description*
@@ -378,11 +540,14 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
                   onChange={handleChange}
                   required
                   rows={5}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
+                  className={`w-full px-4 py-3 border ${validationErrors.description ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
                   placeholder="Tell us about your startup's mission, vision, and what problem you're solving"
                 />
+                {validationErrors.description && (
+                  <p className="mt-1 text-sm text-red-600">{validationErrors.description}</p>
+                )}
               </div>
-              
+
               <div className="transition-all duration-300 transform hover:scale-105">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Website
@@ -392,9 +557,12 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
                   name="website"
                   value={formData.website}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
+                  className={`w-full px-4 py-3 border ${validationErrors.website ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
                   placeholder="https://..."
                 />
+                {validationErrors.website && (
+                  <p className="mt-1 text-sm text-red-600">{validationErrors.website}</p>
+                )}
               </div>
 
               <div className="transition-all duration-300 transform hover:scale-105">
@@ -406,16 +574,19 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
                   name="foundingDate"
                   value={formData.foundingDate}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
+                  className={`w-full px-4 py-3 border ${validationErrors.foundingDate ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
                 />
+                {validationErrors.foundingDate && (
+                  <p className="mt-1 text-sm text-red-600">{validationErrors.foundingDate}</p>
+                )}
               </div>
             </div>
           </div>
         </div>
-        
+
         {/* Category and Location */}
         <div className={`transition-opacity duration-300 ease-in-out ${activeSection === 'location' ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
-          <div className="border-b border-gray-200 pb-6">
+          <div className="border-b border-gray-200 pb-6">   
             <h3 className="text-xl font-semibold mb-4 text-indigo-600">Category & Location</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="transition-all duration-300 transform hover:scale-105">
@@ -427,147 +598,171 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
                   value={formData.category}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
+                  className={`w-full px-4 py-3 border ${validationErrors.category ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
                 >
                   <option value="">Select category</option>
                   {['Fintech', 'Healthtech', 'Edtech', 'Agritech', 'E-commerce', 'Clean Energy', 'Logistics', 'AI & ML', 'Other'].map(cat => (
                     <option key={cat} value={cat}>{cat}</option>
                   ))}
                 </select>
+                  {validationErrors.category && (
+                    <p className="mt-1 text-sm text-red-600">{validationErrors.category}</p>
+                  )}
               </div>
-              
-              <div className="transition-all duration-300 transform hover:scale-105">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Sub-category
-                </label>
-                <input
-                  type="text"
-                  name="subCategory"
-                  value={formData.subCategory}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
-                  placeholder="e.g., Payment Processing, Telemedicine"
-                />
-              </div>
-              
-              <div className="transition-all duration-300 transform hover:scale-105">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Country*
-                </label>
-                <select
-                  name="country"
-                  value={formData.country}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
-                >
-                  <option value="">Select country</option>
-                  {['Nigeria', 'Kenya', 'South Africa', 'Egypt', 'Ghana', 'Rwanda', 'Ethiopia', 'Senegal', 'Morocco', 'Tanzania', 'Uganda', 'Ivory Coast', 'Other'].map(country => (
-                    <option key={country} value={country}>{country}</option>
-                  ))}
-                </select>
-              </div>
-              
-              <div className="transition-all duration-300 transform hover:scale-105">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  City
-                </label>
-                <input
-                  type="text"
-                  name="city"
-                  value={formData.city}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
-                  placeholder="Enter city name"
-                />
-              </div>
+  
+            <div className="transition-all duration-300 transform hover:scale-105">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Sub-category
+              </label>
+              <input
+                type="text"
+                name="subCategory"
+                value={formData.subCategory}
+                onChange={handleChange}
+                className={`w-full px-4 py-3 border ${validationErrors.subCategory ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
+                placeholder="e.g., Payment Processing, Telemedicine"
+              />
+              {validationErrors.subCategory && (
+                <p className="mt-1 text-sm text-red-600">{validationErrors.subCategory}</p>
+              )}
+            </div>
+  
+            <div className="transition-all duration-300 transform hover:scale-105">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Country*
+              </label>
+              <select
+                name="country"
+                value={formData.country}
+                onChange={handleChange}
+                required
+                className={`w-full px-4 py-3 border ${validationErrors.country ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
+              >
+                <option value="">Select country</option>
+                {['Nigeria', 'Kenya', 'South Africa', 'Egypt', 'Ghana', 'Rwanda', 'Ethiopia', 'Senegal', 'Morocco', 'Tanzania', 'Uganda', 'Ivory Coast', 'Other'].map(country => (
+                  <option key={country} value={country}>{country}</option>
+                ))}
+              </select>
+              {validationErrors.country && (
+                <p className="mt-1 text-sm text-red-600">{validationErrors.country}</p>
+              )}
+            </div>
+  
+            <div className="transition-all duration-300 transform hover:scale-105">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                City
+              </label>
+              <input
+                type="text"
+                name="city"
+                value={formData.city}
+                onChange={handleChange}
+                className={`w-full px-4 py-3 border ${validationErrors.city ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
+                placeholder="Enter city name"
+              />
+              {validationErrors.city && (
+                <p className="mt-1 text-sm text-red-600">{validationErrors.city}</p>
+              )}
+            </div>
             </div>
           </div>
         </div>
-        
+
         {/* Funding & Metrics */}
         <div className={`transition-opacity duration-300 ease-in-out ${activeSection === 'metrics' ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
-          <div className="border-b border-gray-200 pb-6">
-            <h3 className="text-xl font-semibold mb-4 text-indigo-600">Funding & Metrics</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div className="transition-all duration-300 transform hover:scale-105">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Stage*
-                </label>
-                <select
-                  name="stage"
-                  value={formData.stage}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
-                >
-                  <option value="">Select stage</option>
-                  {['Idea', 'Pre-seed', 'Seed', 'Series A', 'Series B', 'Series C', 'Growth', 'Established'].map(stage => (
-                    <option key={stage} value={stage}>{stage}</option>
-                  ))}
-                </select>
-              </div>
-              
-              <div className="transition-all duration-300 transform hover:scale-105">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Total Funding (USD)
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                    <span className="text-gray-500">$</span>
-                  </div>
-                  <input
-                    type="number"
-                    name="metrics.fundingTotal"
-                    value={formData.metrics.fundingTotal}
-                    onChange={handleChange}
-                    min="0"
-                    className="w-full pl-8 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
-                    placeholder="0"
-                  />
+        <div className="border-b border-gray-200 pb-6">
+          <h3 className="text-xl font-semibold mb-4 text-indigo-600">Funding & Metrics</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="transition-all duration-300 transform hover:scale-105">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Stage*
+              </label>
+              <select
+                name="stage"
+                value={formData.stage}
+                onChange={handleChange}
+                required
+                className={`w-full px-4 py-3 border ${validationErrors.stage ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
+              >
+                <option value="">Select stage</option>
+                  {['Idea', 'MVP', 'Pre-seed', 'Seed', 'Series A', 'Series B', 'Series C', 'Growth', 'Established'].map(stage => (
+                <option key={stage} value={stage}>{stage}</option>
+                ))}
+              </select>
+                {validationErrors.stage && (
+                    <p className="mt-1 text-sm text-red-600">{validationErrors.stage}</p>
+                )}
+            </div>
+  
+            <div className="transition-all duration-300 transform hover:scale-105">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Total Funding (USD)
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                  <span className="text-gray-500">$</span>
                 </div>
-              </div>
-              
-              <div className="transition-all duration-300 transform hover:scale-105">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Number of Employees
-                </label>
                 <input
                   type="number"
-                  name="metrics.employees"
-                  value={formData.metrics.employees}
+                  name="metrics.fundingTotal"
+                  value={formData.metrics.fundingTotal}
                   onChange={handleChange}
-                  min="1"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
-                  placeholder="1"
+                  min="0"
+                  className={`w-full pl-8 px-4 py-3 border ${validationErrors['metrics.fundingTotal'] ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
+                  placeholder="0"
                 />
               </div>
-              
-              <div className="transition-all duration-300 transform hover:scale-105">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Revenue Range
-                </label>
-                <select
-                  name="metrics.revenue"
-                  value={typeof formData.metrics.revenue === 'number' ? 
-                    formatRevenueForDisplay(formData.metrics.revenue) : 
-                    formData.metrics.revenue}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
-                >
-                  <option value="Pre-revenue">Pre-revenue</option>
-                  <option value="$1K-$10K">$1K-$10K</option>
-                  <option value="$10K-$100K">$10K-$100K</option>
-                  <option value="$100K-$1M">$100K-$1M</option>
-                  <option value="$1M-$10M">$1M-$10M</option>
-                  <option value="$10M+">$10M+</option>
-                  <option value="Undisclosed">Undisclosed</option>
-                </select>
-              </div>
+                {validationErrors['metrics.fundingTotal'] && (
+                  <p className="mt-1 text-sm text-red-600">{validationErrors['metrics.fundingTotal']}</p>
+                )}
+            </div>
+  
+            <div className="transition-all duration-300 transform hover:scale-105">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Number of Employees
+              </label>
+              <input
+                type="number"
+                name="metrics.employees"
+                value={formData.metrics.employees}
+                onChange={handleChange}
+                min="1"
+                className={`w-full px-4 py-3 border ${validationErrors['metrics.employees'] ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
+                placeholder="1"
+              />
+                {validationErrors['metrics.employees'] && (
+                  <p className="mt-1 text-sm text-red-600">{validationErrors['metrics.employees']}</p>
+                )}
+            </div>
+  
+            <div className="transition-all duration-300 transform hover:scale-105">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Revenue Range
+              </label>
+              <select
+                name="metrics.revenue"
+      value={typeof formData.metrics.revenue === 'number' ? 
+        formatRevenueForDisplay(formData.metrics.revenue) : 
+        formData.metrics.revenue}
+      onChange={handleChange}
+                className={`w-full px-4 py-3 border ${validationErrors['metrics.revenue'] ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
+              >
+                <option value="Pre-revenue">Pre-revenue</option>
+                <option value="$1K-$10K">$1K-$10K</option>
+                <option value="$10K-$100K">$10K-$100K</option>
+                <option value="$100K-$1M">$100K-$1M</option>
+                <option value="$1M-$10M">$1M-$10M</option>
+                <option value="$10M+">$10M+</option>
+                <option value="Undisclosed">Undisclosed</option>
+              </select>
+              {validationErrors['metrics.revenue'] && (
+      <p className="mt-1 text-sm text-red-600">{validationErrors['metrics.revenue']}</p>
+              )}
             </div>
           </div>
         </div>
-        
+        </div>
+
         {/* Social Profiles */}
         <div className={`transition-opacity duration-300 ease-in-out ${activeSection === 'social' ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
           <div className="border-b border-gray-200 pb-6">
@@ -577,7 +772,7 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <span className="flex items-center">
                     <svg className="w-5 h-5 mr-2 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
+          <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
                     </svg>
                     LinkedIn
                   </span>
@@ -587,11 +782,14 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
                   name="socialProfiles.linkedin"
                   value={formData.socialProfiles.linkedin}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
+                  className={`w-full px-4 py-3 border ${validationErrors['socialProfiles.linkedin'] ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
                   placeholder="https://linkedin.com/company/..."
                 />
+                    {validationErrors['socialProfiles.linkedin'] && (
+                      <p className="mt-1 text-sm text-red-600">{validationErrors['socialProfiles.linkedin']}</p>
+                    )}
               </div>
-              
+  
               <div className="transition-all duration-300 transform hover:scale-105">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <span className="flex items-center">
@@ -606,13 +804,16 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
                   name="socialProfiles.twitter"
                   value={formData.socialProfiles.twitter}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
+                  className={`w-full px-4 py-3 border ${validationErrors['socialProfiles.twitter'] ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
                   placeholder="https://twitter.com/..."
                 />
+                  {validationErrors['socialProfiles.twitter'] && (
+                    <p className="mt-1 text-sm text-red-600">{validationErrors['socialProfiles.twitter']}</p>
+                  )}
               </div>
-              
+  
               <div className="transition-all duration-300 transform hover:scale-105">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   <span className="flex items-center">
                     <svg className="w-5 h-5 mr-2 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M22.675 0h-21.35c-.732 0-1.325.593-1.325 1.325v21.351c0 .731.593 1.324 1.325 1.324h11.495v-9.294h-3.128v-3.622h3.128v-2.671c0-3.1 1.893-4.788 4.659-4.788 1.325 0 2.463.099 2.795.143v3.24l-1.918.001c-1.504 0-1.795.715-1.795 1.763v2.313h3.587l-.467 3.622h-3.12v9.293h6.116c.73 0 1.323-.593 1.323-1.325v-21.35c0-.732-.593-1.325-1.325-1.325z"/>
@@ -625,11 +826,14 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
                   name="socialProfiles.facebook"
                   value={formData.socialProfiles.facebook}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
+                  className={`w-full px-4 py-3 border ${validationErrors['socialProfiles.facebook'] ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
                   placeholder="https://facebook.com/..."
                 />
+                  {validationErrors['socialProfiles.facebook'] && (
+                    <p className="mt-1 text-sm text-red-600">{validationErrors['socialProfiles.facebook']}</p>
+                  )}
               </div>
-              
+  
               <div className="transition-all duration-300 transform hover:scale-105">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <span className="flex items-center">
@@ -644,14 +848,17 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
                   name="socialProfiles.instagram"
                   value={formData.socialProfiles.instagram}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
+                  className={`w-full px-4 py-3 border ${validationErrors['socialProfiles.instagram'] ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
                   placeholder="https://instagram.com/..."
                 />
+                  {validationErrors['socialProfiles.instagram'] && (
+                    <p className="mt-1 text-sm text-red-600">{validationErrors['socialProfiles.instagram']}</p>
+                  )}
               </div>
             </div>
           </div>
         </div>
-        
+
         {/* Founders */}
         <div className={`transition-opacity duration-300 ease-in-out ${activeSection === 'founders' ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
           <div>
@@ -668,7 +875,7 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
                 Add Founder
               </button>
             </div>
-            
+
             {formData.founders.map((founder, index) => (
               <div 
                 key={index} 
@@ -689,7 +896,7 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
                     </button>
                   )}
                 </div>
-                
+    
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="transition-all duration-300 transform hover:scale-105">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -700,10 +907,13 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
                       name="name"
                       value={founder.name}
                       onChange={(e) => handleFounderChange(index, e)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
+                      className={`w-full px-4 py-3 border ${validationErrors[`founders[${index}].name`] ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
                     />
+                      {validationErrors[`founders[${index}].name`] && (
+                        <p className="mt-1 text-sm text-red-600">{validationErrors[`founders[${index}].name`]}</p>
+                      )}
                   </div>
-                  
+      
                   <div className="transition-all duration-300 transform hover:scale-105">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Role
@@ -713,11 +923,14 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
                       name="role"
                       value={founder.role}
                       onChange={(e) => handleFounderChange(index, e)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
+                      className={`w-full px-4 py-3 border ${validationErrors[`founders[${index}].role`] ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
                       placeholder="CEO, CTO, etc."
-                    />
+                    /> 
+                      {validationErrors[`founders[${index}].role`] && (
+                        <p className="mt-1 text-sm text-red-600">{validationErrors[`founders[${index}].role`]}</p>
+                      )}
                   </div>
-                  
+
                   <div className="transition-all duration-300 transform hover:scale-105">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       <span className="flex items-center">
@@ -732,9 +945,12 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
                       name="linkedin"
                       value={founder.linkedin}
                       onChange={(e) => handleFounderChange(index, e)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
+                      className={`w-full px-4 py-3 border ${validationErrors[`founders[${index}].linkedin`] ? 'border-red-500 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200`}
                       placeholder="https://linkedin.com/in/..."
                     />
+                      {validationErrors[`founders[${index}].linkedin`] && (
+                        <p className="mt-1 text-sm text-red-600">{validationErrors[`founders[${index}].linkedin`]}</p>
+                      )}
                   </div>
                 </div>
               </div>
@@ -742,18 +958,25 @@ const StartupForm: React.FC<StartupFormProps> = ({ isEditing = false }) => {
           </div>
         </div>
         
-        {/* Submit */}
-        <div className="flex justify-end pt-6">
+        <div className="flex justify-between pt-6">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="bg-gray-200 text-gray-800 px-6 py-3 rounded-lg hover:bg-gray-300 transition-all duration-300 transform hover:scale-105 shadow-md"
+          >
+            Cancel
+          </button>
+          
           <button
             type="submit"
-            disabled={isSubmitting}
-            className="bg-indigo-600 text-white px-8 py-3 rounded-lg hover:bg-indigo-700 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 shadow-md hover:shadow-lg"
+            disabled={isSubmitting || loading}
+            className="bg-indigo-600 text-white px-8 py-3 rounded-lg hover:bg-indigo-700 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 shadow-md hover:shadow-lg flex items-center"
           >
-            {isSubmitting ? (
-              <div className="flex items-center">
+            {(isSubmitting || loading) ? (
+              <>
                 <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
                 <span>{isEditing ? 'Updating...' : 'Creating...'}</span>
-              </div>
+              </>
             ) : (
               isEditing ? 'Update Startup' : 'List Startup'
             )}
